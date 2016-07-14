@@ -1,4 +1,8 @@
-
+/* BinaryToOctal program is application to convert Binary Number to Octal Number
+   it is done into two steps
+   1. converting binary number to decimal number
+   2. converting decimal number to octal number
+*/
 
  public class BinaryToOctal {
 	
