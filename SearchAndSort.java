@@ -3,6 +3,7 @@
  *  1. Search ( linear search and binary search )
  *  2. Sort   ( quick sort )
  * */
+
 public class SearchAndSort {
 	
 	/*
@@ -43,13 +44,55 @@ public class SearchAndSort {
 		return -1;   // if searchElement not found in array 
 	}
 	
-	public static void main(String[] args) {
-		// TODO Auto-generated method stub
-		int[] arr;
-		arr= new int[]{3,4,1,9,5,8};
-		//System.out.println("linear "+ linearSearch(arr,8,0) );
-	//	System.out.println("binary "+ binarySearch(arr,8,0,arr.length-1) );
-
+	
+	/*
+	 * Quick Sort using recursion
+	 * */
+	public  void quickSort(int[] arr, int start, int end){
+		if( start>=end ){
+			return;
+		}
+		//getting pivotIndex for partitioning
+		int pivotIndex = partition(arr, start, end); 
+		
+		//Array from start to end is divided into two part
+		quickSort(arr, start, pivotIndex-1);
+		quickSort(arr,pivotIndex+1, end);
+		
+	}
+	
+	/*
+	 * partitioning array for recursive call 
+	 * and getting pivot element fixed at its location
+	 * also giving pivotIndex for next partition
+	 * */
+	public  int partition(int[] arr, int start, int end){
+		
+		int pivot = arr[end],i;
+		int pivotIndex = start;
+		
+		for( i=start;i<end;i++){
+			if(arr[i]<=pivot){
+				
+				swap(arr,i, pivotIndex);
+				
+				pivotIndex++;
+			}
+		}
+		
+		swap(arr, pivotIndex, end);
+	
+		return pivotIndex;
+	}
+	
+	/* 
+	 * Swapping two element of array
+	 *  */
+	public  void swap(int[] arr,int index1, int index2){
+		
+		int temp = arr[index1];
+		arr[index1]=arr[index2];
+		arr[index2]= temp;
 	}
 
 }
