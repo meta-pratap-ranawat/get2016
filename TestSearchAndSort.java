@@ -23,11 +23,15 @@ public class TestSearchAndSort {
 
 	@Test
 	public void test() {
-		assertEquals(8, sas.linearSearch(arr, 8, 0));
 		
+		//tesing linear search
+		assertEquals(8, sas.linearSearch(arr, 8, 0)); 
+		
+		//testing binary search
 		assertEquals(8, sas.binarySearch(arr, 8, 0,arr.length));
-		sas.quickSort(arr, 0, arr.length-1);
 		
+		// testing QuickSort
+		sas.quickSort(arr, 0, arr.length-1);
 		assertArrayEquals(arr1, arr);
 	}
 
