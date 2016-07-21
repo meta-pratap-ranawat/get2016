@@ -28,7 +28,16 @@ public class TestPermutation {
 		exceptedOutput = new ArrayList<String>( Arrays.asList("ABC","ACB","BAC","BCA","CBA","CAB") );
 		
 		sc.delimiter();
-		 str = sc.next();
+		 str = sc.next();// while entering String consider string ABC because exceptedOutput is fixed. it is for ABC string only
+		 /*
+		 * input Format 
+		 * 
+		 * inputString
+		 *
+		 * sample test case
+		 *
+		 * ABC
+		 */
 	}
 	
 
