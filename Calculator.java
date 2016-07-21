@@ -1,3 +1,7 @@
+/*
+ * this is only abstract program for calculator that show how calculator can work
+*/
+
 public class Calculator extends Listener{
 
 
