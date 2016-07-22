@@ -54,10 +54,15 @@ public class TestMatrix {
 		 /* 
 		  Check if multiplication is possible or not
 		  */
-		Boolean t=m.Multi_pos( col,row1);
+		int store[][];
 		int exp[][]={{25,24,31},{65,66,99},{47,48,73}};
-		int store[][]=m.Multi(matr, matr2);
-		assertArrayEquals(exp,store);
+		
+		if( m.isMultiplicationPosible( col,row1) ){
+			store=m.Multi(matr, matr2);
+			assertArrayEquals(exp,store);
+		}
+		
+		
 	}
 
 }

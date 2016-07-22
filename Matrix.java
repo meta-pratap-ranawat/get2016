@@ -82,7 +82,7 @@ public class Matrix {
 
 	}
 
-	public static void main(String[] arr) {
+	/* public static void main(String[] arr) {
 
 		System.out.print("Enter row for first matrix");
 		Scanner sc = new Scanner(System.in);
@@ -125,4 +125,5 @@ public class Matrix {
 		}
 		sc.close();
 	}
+	*/
 }
