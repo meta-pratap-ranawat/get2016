@@ -1,2 +1,2 @@
-Participant 1, 1, Communication, good
-Participant 2, 2, Delivery Process, fine
+Participant 1, 1, Communication/ Delivery Process, no issue
+Participant 2, 2, Delivery Process, system working
