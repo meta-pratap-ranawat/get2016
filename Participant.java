@@ -30,7 +30,15 @@ public class Participant {
 		SurveyReport  sryRep;
 		Participant pc;
 		Scanner sc = new Scanner(System.in);
-		int numberOfUser = sc.nextInt(),i=0;
+		
+		System.out.println("Enter number of participant ");
+		
+		try{
+			int numberOfUser = sc.nextInt(),i=0;
+		}catch(Exception e){ 
+			System.out.println("Error input mismatch ");
+			
+		}
 		try{
 
 			while(i++ < numberOfUser){
@@ -49,4 +57,28 @@ public class Participant {
 		}
 
 	}
+	/*
+	
+	2			// number of participant		
+
+	1			// answer for Question 1
+
+	1			// answer for multiple choice
+	2
+	0			// existing from multiple choice
+
+	no issue		// feedback
+	exit     		// exist from feedback text
+
+	2				// response from participant 2		
+
+	2	
+	0
+
+	system working
+	exit
+
+	
+	*/
+	
 }
