@@ -1,32 +1,51 @@
+/**
+ * this is main application from where game (TicTacToe) start
+ * @author pratap
+ * */
+
+import java.io.IOException;
 import java.util.Scanner;
 
 public class TicTacToe {
-	
+
 	static char[][] board = new char[][]{{'_','_','_'},
-										{'_','_','_'},
-										{'_','_','_'}};
-	Scanner sc;									
-	public TicTacToe(){
+		{'_','_','_'},
+		{'_','_','_'}};			//creating check board
+	Scanner sc;		
+	Player pp;
+	Computer cp;
+	public TicTacToe()throws IOException{
 		sc = new Scanner(System.in);
 	}
+	/*
+	 * function start game and decide that who are playing game
+	 *  two Player Or One Player and Computer
+	 * */
 	public void startGame(){
-		
+
 		System.out.println("Welcome To the Tic Tac Toe");
-		displayBoard(board);
+
 		System.out.println("Enter option to play");
 		System.out.println("  1. Two Player");
 		System.out.println("  2. Player and Computer");
 		int gameWith = sc.nextInt();
-		
+		displayBoard(board);
+
 		if(gameWith == 1){
-			new Player();
-			
+			pp = new Player();
+			pp.play();
 		}else{
-			new Computer();
+			cp = new Computer();
+			cp.play();
 		}
+		sc.close();
 	}
-	
-	public void displayBoard(char[][] board){
+
+
+	/*
+	 * function to display board
+	 * */
+	static public void displayBoard(char[][] board){
 		int cnt =0;
 		System.out.println("==================");
 		for(int i=0;i<3;i++){
@@ -44,9 +63,17 @@ public class TicTacToe {
 		System.out.println("==================");
 	}
 
+	/*
+	 * main function to start game
+	 * */
 	public static void main(String[] args) {
-		TicTacToe ttt = new TicTacToe();
-		ttt.startGame();
+		try{
+			TicTacToe ttt = new TicTacToe();
+			ttt.startGame();
+		}catch(IOException e){
+			System.out.print("Error in getting input");
+		}
+
 	}
 
 }
