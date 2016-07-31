@@ -1,4 +1,4 @@
-
+package DS1;
 public interface MyIterator < E > {
 
 	public boolean hasNext();
