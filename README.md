@@ -15,3 +15,8 @@ for LinkList(Doubly)
     2. MyDLinkList.java
     3. NodeOfDoubly.java  
     4. TestMyDLinkList.java
+    
+for binary search
+    1. BinarySearch.java
+    2. MyException.java
+    3. TestBinarySearch.java
