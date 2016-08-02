@@ -15,7 +15,7 @@ public class BinarySearchTree<E extends Comparable<E>> implements Comparable<E> 
 	 * */
 	public BinarySearchTree() {
 
-		root = new Node<E>();
+		root = null;
 
 	}
 
@@ -38,7 +38,7 @@ public class BinarySearchTree<E extends Comparable<E>> implements Comparable<E> 
 
 		if(root == null ){
 
-			root.key = element;
+			root = temp;
 
 		}else{
 
