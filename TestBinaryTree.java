@@ -69,6 +69,8 @@ public class TestBinaryTree {
 		
 		System.out.println("\n Mirror Test 2 "+ tbt.isMirror(tree1.getRoot(), tree.getRoot()) );
 		
+		System.out.println("\n Mirror Test 2 "+ tbt.isMirror(tree.getRoot(), tree.getRoot()) );			// on same tree
+		
 		
 		
 		
