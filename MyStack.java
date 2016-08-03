@@ -1,4 +1,6 @@
-package DS2;
+import java.util.LinkedList;
+
+
 
 public class MyStack<E> {
 	private MyLinkList<E> myStack;
@@ -52,11 +54,32 @@ public class MyStack<E> {
 
 
 		}catch(MyException e){
-			size++;
+			
 			e.printStackTrace();
 
 		}
 		return element;
+	}
+	
+	
+	/*
+	 * checks that stack is empty or not
+	 * */
+	public boolean isEmpty(){
+		if(size>0){
+			return false;
+		}
+		return true;
+	}
+	
+	
+	/*
+	 * check for top symbol
+	 * */
+	public E peek(){
+		
+		return myStack.get(0);
+		
 	}
 	
 }

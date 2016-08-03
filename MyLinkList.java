@@ -3,7 +3,7 @@
  * @author pratap
  * */
 
-package DS2;
+
 public class MyLinkList<E> implements MyList<E> {
 
 	private Node<E> node = new Node<E>();
