@@ -1,4 +1,0 @@
-post is ABC*+D-
-post is abcda*+++
-post is abcd+a*++
-post is AB+CD-*
