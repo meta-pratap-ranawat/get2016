@@ -1,3 +1,9 @@
+/**
+ * this application is to implement Heap Logic
+ * creating Heap and Sorting by Heap
+ * @author pratap
+ * */
+
 import java.util.ArrayList;
 import java.util.List;
 

@@ -1,3 +1,8 @@
+/**
+ *  this application to Job availbe for printing to printer
+ *  @author pratap
+ * */
+
 import static org.junit.Assert.*;
 
 import java.util.Arrays;
@@ -49,7 +54,10 @@ public class JunitTestHeap {
 
 		assertArrayEquals( hp.getArray(), array1 );			// test case one
 
-
+		
+		/*
+		 * user test case at run time
+		 * */
 		int T = uiv.getInteger();
 		
 		while(T-->0){

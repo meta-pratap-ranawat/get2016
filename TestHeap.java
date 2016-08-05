@@ -1,4 +1,6 @@
-
+/**
+ * this application is to check Output Of Heap.java
+ * */
 import java.util.Scanner;
 
 
