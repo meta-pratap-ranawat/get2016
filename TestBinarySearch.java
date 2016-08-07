@@ -13,10 +13,10 @@ public class TestBinarySearch {
 		 * for Integer type data(positive test case)
 		 * here array is sorted
 		 * */
-		Integer array[] = new Integer[]{2,8,8,8,8,8,8,9,9};
+		Integer array[] = new Integer[]{2,2,8,8,8,8,8,9,9};
 		BinarySearch<Integer> bs = new BinarySearch<Integer>(array);
 		
-		System.out.println("element "+ bs.binarySearchIterative(0, array.length, 2));
+		System.out.println("element "+ bs.binarySearchIterative(0, array.length, 9));
 		
 		//System.out.println("element "+ bs.binarySearch(0, array.length, 10));
 		

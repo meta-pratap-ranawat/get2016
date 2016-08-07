@@ -71,7 +71,7 @@ public class BinarySearch<E> implements Comparable<E> {
 
 		while(low<high){
 
-			mid = (low+high)/2+1;
+			mid = (low+high)/2;
 
 			if( compareTo(searchForElement) > 0 ){
 
@@ -83,19 +83,19 @@ public class BinarySearch<E> implements Comparable<E> {
 					low = mid+1;
 
 				}else{
-					
+
 					if(mid!=0)
 						mid = mid-1;
-					
+
 					if( compareTo(searchForElement) == 0 ){
 						if(low<mid)
-						high = mid;
+							high = mid;
 						else return mid;
-						
+
 					}else{
-						
-					return mid+1;
-					
+
+						return mid+1;
+
 					}
 
 				}
@@ -103,7 +103,7 @@ public class BinarySearch<E> implements Comparable<E> {
 			}
 
 		}
-		
+
 		return -1;
 
 	}
