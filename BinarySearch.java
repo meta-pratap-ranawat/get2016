@@ -22,7 +22,7 @@ public class BinarySearch<E> implements Comparable<E> {
 			}
 		}catch(MyException e){
 
-			e.printStackTrace();
+			e.getMessage();
 
 		}
 	}
@@ -65,7 +65,9 @@ public class BinarySearch<E> implements Comparable<E> {
 
 
 
-
+	/*
+	* finding left most occurence of element in array using binary search in Iterative manner
+	*/
 	public int binarySearchIterative(int low, int high, E searchForElement) {
 
 
