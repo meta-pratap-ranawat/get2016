@@ -11,4 +11,8 @@ for Assignment 1
     2.3 JniutTestAddEmployee
 
 for Assignment 2
-  
+  1. UniqueCharacter
+  2. JunitTestUniqueCharacter
+
+
+And MyException and UserInputValidation are common for all Question
