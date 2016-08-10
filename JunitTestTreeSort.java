@@ -149,7 +149,7 @@ public class JunitTestTreeSort {
 
 			Integer temp;
 			
-			studentRollNumber = new TreeSort<Integer>(2);
+			studentRollNumber = new TreeSort<Integer>();
 			
 			for(int i=0;i<size;i++){
 				
