@@ -39,8 +39,7 @@ public class BubbleSort implements Sort{
 	
 	
 	/*
-	 * main function
-	 * */
+	 
 	public static void main(String args[]) {
 		
 		BubbleSort bubble = new BubbleSort();
@@ -55,5 +54,6 @@ public class BubbleSort implements Sort{
 			System.out.println(" "+array[i]);
 		}
 	}
+	*/
 
 }
