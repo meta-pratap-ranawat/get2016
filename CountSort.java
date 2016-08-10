@@ -95,8 +95,7 @@ public class CountSort implements Sort{
 	}
 
 	/*
-	 * main function
-	 * */
+	
 	public static void main(String args[]) {
 
 		CountSort count = new CountSort();
@@ -112,5 +111,7 @@ public class CountSort implements Sort{
 		}
 
 	}
+	
+	*/
 
 }
