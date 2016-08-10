@@ -74,8 +74,7 @@ public class RadixSort implements Sort{
 
 	
 	/*
-	 * main function
-	 * */
+	
 	public static void main(String args[]) {
 		
 		RadixSort radix = new RadixSort();
@@ -89,5 +88,6 @@ public class RadixSort implements Sort{
 			System.out.println(" "+array[i]);
 		}
 	}
+	*/
 
 }
