@@ -115,7 +115,7 @@ public class SortingTechnique {
 		return count;
 
 	}
-
+	/*
 	public static void main(String args[])
 	{
 		int[] input = { 1, 2, 5, 2, -1,34,234,234,132,3453,11,2,2,2,2};
@@ -131,4 +131,5 @@ public class SortingTechnique {
 		}
 		
 	}
+	*/
 }
