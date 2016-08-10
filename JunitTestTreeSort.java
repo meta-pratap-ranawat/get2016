@@ -89,7 +89,7 @@ public class JunitTestTreeSort {
 		 * test case two 
 		 * */
 		
-		studentRollNumber = new TreeSort<Integer>(2);
+		studentRollNumber = new TreeSort<Integer>();
 
 		exceptedOutput = new ArrayList<Integer>();
 
