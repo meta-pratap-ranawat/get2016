@@ -87,8 +87,7 @@ public class QuickSort implements Sort{
 
 	
 	/*
-	 * main function
-	 * */
+	
 	public static void main(String args[]) {
 		
 		QuickSort radix = new QuickSort();
@@ -102,4 +101,5 @@ public class QuickSort implements Sort{
 			System.out.println(" "+array[i]);
 		}
 	}
+	*/
 }
