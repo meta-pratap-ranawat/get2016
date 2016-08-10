@@ -135,7 +135,7 @@ public class JunitTestTreeSort {
 		UserInputValidation  uiv=new UserInputValidation();
 		
 		
-		Integer T = uiv.getInteger();
+		Integer T = uiv.getInteger();				// number of test case
 		
 		SortedSet<Integer> exceptedOutput = new TreeSet<Integer>();
 		
