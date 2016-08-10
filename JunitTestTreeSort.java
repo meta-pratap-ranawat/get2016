@@ -2,7 +2,11 @@ import static org.junit.Assert.*;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -124,6 +128,50 @@ public class JunitTestTreeSort {
 		Collections.sort(exceptedOutput);
 
 		assertArrayEquals(exceptedOutput.toArray(), outputList.toArray());
+		
+		/*
+		 * User Panel use can also pass input test case
+		 * */
+		UserInputValidation  uiv=new UserInputValidation();
+		
+		
+		Integer T = uiv.getInteger();
+		
+		SortedSet<Integer> exceptedOutput = new TreeSet<Integer>();
+		
+		while(T-->0){
+
+			System.out.println("Enter number of student");
+
+			Integer size = uiv.getInteger();
+
+			System.out.println("Enter Roll number of student");
+
+			Integer temp;
+			
+			studentRollNumber = new TreeSort<Integer>(2);
+			
+			for(int i=0;i<size;i++){
+				
+				temp = uiv.getInteger();
+				
+				exceptedOutput.add(temp);
+				
+				studentRollNumber.add(temp);
+
+			}
+
+			 outputList = studentRollNumber.getSortedData();
+
+			 assertArrayEquals(exceptedOutput.toArray(), outputList.toArray());
+
+			exceptedOutput.clear();
+
+			outputList.clear();
+
+		}
+		
+		/*user test case ends here*/
 		
 	}
 
