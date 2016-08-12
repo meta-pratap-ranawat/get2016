@@ -1,7 +1,13 @@
-CREATE DATABASE IF NOT EXISTS lis;
+/**
+   this file is SQL file contains Library Information System
+   @author pratap
+*/
 
-USE lis;
+CREATE DATABASE IF NOT EXISTS lis;          /**database crreation */
 
+USE lis;                                    /** selection of database for use*/
+
+/** table creation member*/
 CREATE TABLE IF NOT EXISTS members(
 
     member_id VARCHAR(20) NOT NULL,
@@ -18,16 +24,19 @@ CREATE TABLE IF NOT EXISTS members(
 
 );
 
+/** table creation author table*/
 CREATE TABLE IF NOT EXISTS author(
 
-    author_nm VARCHAR(20) NOT NULL,
-    
     author_id VARCHAR(30) NOT NULL,
+
+    author_nm VARCHAR(20) NOT NULL,
     
     PRIMARY KEY(author_id)
     
 );
 
+
+/** table creation publisher*/
 CREATE TABLE IF NOT EXISTS publishers(
 
     publisher_id VARCHAR(20) NOT NULL,
@@ -38,6 +47,8 @@ CREATE TABLE IF NOT EXISTS publishers(
     
 );
 
+
+/** table creation subjects*/
 CREATE TABLE IF NOT EXISTS subjects(
 
     subject_id VARCHAR(20) NOT NULL,
@@ -48,13 +59,17 @@ CREATE TABLE IF NOT EXISTS subjects(
     
 );
 
+
+/** table creation title*/
 CREATE TABLE IF NOT EXISTS titles(
 
-    subject_id VARCHAR(20) NOT NULL,
+    
     
     title_id VARCHAR(20) NOT NULL,
     
     title_nm VARCHAR(20) NOT NULL,
+    
+    subject_id VARCHAR(20) NOT NULL,
     
     publisher_id VARCHAR(20) NOT NULL,
     
@@ -71,7 +86,7 @@ CREATE TABLE IF NOT EXISTS titles(
 
 
 
-
+/** table creation title author*/
 CREATE TABLE IF NOT EXISTS title_author(
 
     title_id VARCHAR(20) NOT NULL,
@@ -91,6 +106,8 @@ CREATE TABLE IF NOT EXISTS title_author(
     
 );
 
+
+/** table creation book*/
 CREATE TABLE IF NOT EXISTS books(
 
     accession_no VARCHAR(20) NOT NULL,
@@ -111,15 +128,17 @@ CREATE TABLE IF NOT EXISTS books(
    
 );
 
+
+/** table creation book issue*/
 CREATE TABLE IF NOT EXISTS book_issue(
 
     issue_dt DATETIME  NOT NULL,
     
-    due_dt DATETIME  NOT NULL,
-        
     accession_no VARCHAR(20) NOT NULL,
     
     member_id VARCHAR(20) NOT NULL,
+    
+    due_dt DATETIME  NOT NULL,
     
     
     PRIMARY KEY(issue_dt, accession_no, member_id ),
@@ -139,7 +158,11 @@ CREATE TABLE IF NOT EXISTS book_issue(
     
 );
 
+
+/** table creation book return*/
 CREATE TABLE IF NOT EXISTS book_return(
+
+    return_dt DATETIME  NOT NULL,
 
     accession_no VARCHAR(20) NOT NULL,
     
@@ -147,7 +170,7 @@ CREATE TABLE IF NOT EXISTS book_return(
     
     issue_dt DATETIME  NOT NULL,
     
-    return_dt DATETIME  NOT NULL,
+    
     
     PRIMARY KEY(return_dt, accession_no, member_id),
     
