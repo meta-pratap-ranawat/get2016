@@ -1,2 +1,2 @@
 
-# get2016
+# DBMS Assignment 2
