@@ -1,3 +1,7 @@
+/**
+* this Junit application is to test AddEmployee
+*/
+
 import static org.junit.Assert.*;
 
 import java.util.HashSet;
@@ -16,26 +20,26 @@ public class JunitTestAddEmployee {
 
 		inputEmployeeSet = new HashSet<AddEmployee>();
 
-		inputEmployeeSet.add(new AddEmployee("Pratap","jaipur"));
+		inputEmployeeSet.add(new AddEmployee("Pratap","jaipur"));			//updated Code
 
-		inputEmployeeSet.add(new AddEmployee("Vijay","jaipur"));
+		inputEmployeeSet.add(new AddEmployee("Vijay","jaipur"));			//updated Code
 
-		inputEmployeeSet.add(new AddEmployee("Rahul","jaipur"));
+		inputEmployeeSet.add(new AddEmployee("Rahul","jaipur"));			//updated Code
 
-		inputEmployeeSet.add(new AddEmployee("Ram","Chittorgarh"));			// tried to add duplicate data
+		inputEmployeeSet.add(new AddEmployee("Ram","Chittorgarh"));			//updated Code
 
 		inputEmployeeSet.add(new AddEmployee("Pratap","Bhilwara"));			// tried to add duplicate data
 
 
 		exceptedOutput = new HashSet<AddEmployee>();
 
-		exceptedOutput.add(new AddEmployee("Pratap","jaipur"));
+		exceptedOutput.add(new AddEmployee("Pratap","jaipur"));					//updated Code
 
-		exceptedOutput.add(new AddEmployee("Vijay","jaipur"));
+		exceptedOutput.add(new AddEmployee("Vijay","jaipur"));					//updated Code
 
-		exceptedOutput.add(new AddEmployee("Rahul","jaipur"));
+		exceptedOutput.add(new AddEmployee("Rahul","jaipur"));					//updated Code
 
-		exceptedOutput.add(new AddEmployee("Ram","Chittorgarh"));
+		exceptedOutput.add(new AddEmployee("Ram","Chittorgarh"));				//updated Code
 
 	}
 
@@ -48,17 +52,17 @@ public class JunitTestAddEmployee {
 
 
 		/*
-		 * test case
+		 * User Input test case
 		 * */
 		inputEmployeeSet.clear(); exceptedOutput.clear();
 
-		Integer numberOfEmployee;
+		Integer numberOfEmployee;						//updated Code
 
-		UserInputValidation uiv = new UserInputValidation();
+		UserInputValidation uiv = new UserInputValidation();			//updated Code
 
-		numberOfEmployee = uiv.getInteger();
+		numberOfEmployee = uiv.getInteger();					//updated Code
 
-		for(int i=0;i<numberOfEmployee;i++){
+		for(int i=0;i<numberOfEmployee;i++){					//updated Code
 
 			System.out.println("enter Name \n enter city");
 
@@ -69,9 +73,9 @@ public class JunitTestAddEmployee {
 
 		exceptedOutput = new HashSet<AddEmployee>();
 
-		System.out.println("enter 1 continously till you want to add employee in exceptedOutput else 0 to exit");
+		System.out.println("enter 1 continously till you want to add employee in exceptedOutput else 0 to exit");		//updated Code
 
-		while(1==uiv.getInteger()){
+		while(1==uiv.getInteger()){												//updated Code
 
 			System.out.println("enter Name \n enter city");
 
