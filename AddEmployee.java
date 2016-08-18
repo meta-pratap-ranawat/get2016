@@ -10,6 +10,7 @@ import java.util.HashSet;
  * */
 public class AddEmployee extends Employee {
 
+	private static int employeeId;
 
 	/*
 	 * default constructor
@@ -27,9 +28,9 @@ public class AddEmployee extends Employee {
 	 * @param employeeName
 	 * @param employeeAddress
 	 * */
-	public AddEmployee(Integer employeeId, String employeeName, String employeeAddress) {
+	public AddEmployee( String employeeName, String employeeAddress) {
 
-		super(employeeId, employeeName, employeeAddress);
+		super(++employeeId, employeeName, employeeAddress);
 
 	}
 
@@ -40,7 +41,7 @@ public class AddEmployee extends Employee {
 
 		AddEmployee employee = (AddEmployee)o;
 
-		if(employee.getEmployeeId().equals(this.getEmployeeId())){
+		if(employee.getEmployeeName().equals(this.getEmployeeName())){
 
 			return true;
 
@@ -56,30 +57,33 @@ public class AddEmployee extends Employee {
 	public int hashCode() {
 
 
-		return this.getEmployeeId().hashCode();
+		return this.getEmployeeName().hashCode();
 
 	}
 
-	
+
 	@Override
 	public String toString(){
 
 		return ("Id "+getEmployeeId()+", Name "+getEmployeeName()+", Address "+getEmployeeAddress());
 	}
-
+	
+	/**
+	 * main is only to test class separately for compiled test Junit is available 
+	 * */
 	public static void main(String[] args) {
 
 		HashSet<AddEmployee> employeeSet = new HashSet<AddEmployee>();
 
-		employeeSet.add(new AddEmployee(1,"Pratap","jaipur"));
+		employeeSet.add(new AddEmployee("Pratap","jaipur"));
 
-		employeeSet.add(new AddEmployee(2,"Vijay","jaipur"));
+		employeeSet.add(new AddEmployee("Vijay","jaipur"));
 
-		employeeSet.add(new AddEmployee(3,"Rahul","jaipur"));
+		employeeSet.add(new AddEmployee("Rahul","jaipur"));
 
-		employeeSet.add(new AddEmployee(1,"Ram","Chittorgarh"));			// tried to add duplicate data
+		employeeSet.add(new AddEmployee("Ram","Chittorgarh"));			// tried to add duplicate data
 
-		employeeSet.add(new AddEmployee(2,"Pratap","Bhilwara"));			// tried to add duplicate data
+		employeeSet.add(new AddEmployee("Pratap","Bhilwara"));			// tried to add duplicate data
 
 		for(AddEmployee e : employeeSet){
 

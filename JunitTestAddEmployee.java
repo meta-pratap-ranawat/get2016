@@ -8,7 +8,7 @@ import org.junit.Test;
 
 public class JunitTestAddEmployee {
 
-	
+
 	HashSet<AddEmployee> inputEmployeeSet, exceptedOutput;
 
 	@Before
@@ -16,58 +16,72 @@ public class JunitTestAddEmployee {
 
 		inputEmployeeSet = new HashSet<AddEmployee>();
 
-		inputEmployeeSet.add(new AddEmployee(1,"Pratap","jaipur"));
+		inputEmployeeSet.add(new AddEmployee("Pratap","jaipur"));
 
-		inputEmployeeSet.add(new AddEmployee(2,"Vijay","jaipur"));
+		inputEmployeeSet.add(new AddEmployee("Vijay","jaipur"));
 
-		inputEmployeeSet.add(new AddEmployee(3,"Rahul","jaipur"));
+		inputEmployeeSet.add(new AddEmployee("Rahul","jaipur"));
 
-		inputEmployeeSet.add(new AddEmployee(1,"Ram","Chittorgarh"));			// tried to add duplicate data
+		inputEmployeeSet.add(new AddEmployee("Ram","Chittorgarh"));			// tried to add duplicate data
 
-		inputEmployeeSet.add(new AddEmployee(2,"Pratap","Bhilwara"));			// tried to add duplicate data
-		
+		inputEmployeeSet.add(new AddEmployee("Pratap","Bhilwara"));			// tried to add duplicate data
+
 
 		exceptedOutput = new HashSet<AddEmployee>();
 
-		exceptedOutput.add(new AddEmployee(1,"Pratap","jaipur"));
+		exceptedOutput.add(new AddEmployee("Pratap","jaipur"));
 
-		exceptedOutput.add(new AddEmployee(2,"Vijay","jaipur"));
+		exceptedOutput.add(new AddEmployee("Vijay","jaipur"));
 
-		exceptedOutput.add(new AddEmployee(3,"Rahul","jaipur"));
+		exceptedOutput.add(new AddEmployee("Rahul","jaipur"));
+
+		exceptedOutput.add(new AddEmployee("Ram","Chittorgarh"));
 
 	}
 
 	@Test
 	public void test() {
-		
-		
-			assertArrayEquals(exceptedOutput.toArray(), inputEmployeeSet.toArray());				// test case 1
-			
-			
-			
-			/*
-			 * test case
-			 * */
-			inputEmployeeSet.clear(); exceptedOutput.clear();
-			
-			inputEmployeeSet.add(new AddEmployee(1,"Pratap","jaipur"));
 
-			inputEmployeeSet.add(new AddEmployee(1,"Vijay","jaipur"));
 
-			inputEmployeeSet.add(new AddEmployee(1,"Rahul","jaipur"));
+		assertArrayEquals(exceptedOutput.toArray(), inputEmployeeSet.toArray());				// test case 1
 
-			inputEmployeeSet.add(new AddEmployee(1,"Ram","Chittorgarh"));			// tried to add duplicate data
 
-			inputEmployeeSet.add(new AddEmployee(1,"Pratap","Bhilwara"));			// tried to add duplicate data
-			
 
-			exceptedOutput = new HashSet<AddEmployee>();
+		/*
+		 * test case
+		 * */
+		inputEmployeeSet.clear(); exceptedOutput.clear();
 
-			exceptedOutput.add(new AddEmployee(1,"Pratap","jaipur"));
-			
-			assertArrayEquals(exceptedOutput.toArray(), inputEmployeeSet.toArray());		//test case 2
+		Integer numberOfEmployee;
 
-			
+		UserInputValidation uiv = new UserInputValidation();
+
+		numberOfEmployee = uiv.getInteger();
+
+		for(int i=0;i<numberOfEmployee;i++){
+
+			System.out.println("enter Name \n enter city");
+
+			inputEmployeeSet.add(new AddEmployee(uiv.getString(),uiv.getString()));
+
+		}		
+
+
+		exceptedOutput = new HashSet<AddEmployee>();
+
+		System.out.println("enter 1 continously till you want to add employee in exceptedOutput else 0 to exit");
+
+		while(1==uiv.getInteger()){
+
+			System.out.println("enter Name \n enter city");
+
+			exceptedOutput.add(new AddEmployee(uiv.getString(),uiv.getString()));
+
+		}
+
+		assertArrayEquals(exceptedOutput.toArray(), inputEmployeeSet.toArray());		//test case 2
+
+
 	}
 
 }
