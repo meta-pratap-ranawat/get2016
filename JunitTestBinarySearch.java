@@ -10,12 +10,22 @@ import org.junit.Test;
 public class JunitTestBinarySearch {
 
 	Integer array[];
+	
+	Integer input[], keyToSearch, exceptedOutput, size;		//update Code
+	
+	UserInputValidation uiv;					//updated Code
+	
 	BinarySearch<Integer> bs;
+	
 	@Before
 	public void setUp() throws Exception {
 		
+		uiv = new UserInputValidation();			//updated Code
+		
 		array = new Integer[]{2,2,8,8,8,8,8,9,9};
+		
 		bs = new BinarySearch<Integer>(array);
+		
 		
 		
 	}
@@ -42,6 +52,38 @@ public class JunitTestBinarySearch {
 		 * In below case binary search will generate exception that is array is not sorted
 		 * */
 		assertEquals(7,bs.binarySearchIterative(0, array.length, 2));
+		
+		
+		/** updated Code
+		User input (here user will pass test case)
+		input array size as well as its element and
+		Key element to be search in input array and
+		its exceptedOutput location in array
+		*/
+		
+		System.out.println("Enter length of Array");
+		
+		size = uiv.getInteger();
+		
+		System.out.println("Enter element of Array)");
+		
+		input = new Integer[size];
+		
+		for(int i=0;i<size;i++){
+			
+			input[i] = uiv.getInteger();
+		}
+		
+		System.out.println("enter element to search its first occurence in array");
+		keyToSearch = uiv.getInteger();
+		
+		System.out.println("enter  keyElement first occurence in array");
+		exceptedOutput = uiv.getInteger();
+		
+		bs = new BinarySearch<Integer>(input);
+		assertEquals(exceptedOutput,bs.binarySearchIterative(0, input.length, keyToSearch));
+		
+		//end of updated Code
 	}
 
 }
