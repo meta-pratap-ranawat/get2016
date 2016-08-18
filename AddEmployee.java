@@ -10,7 +10,7 @@ import java.util.HashSet;
  * */
 public class AddEmployee extends Employee {
 
-	private static int employeeId;
+	private static int employeeId;			//updated Code
 
 	/*
 	 * default constructor
@@ -28,9 +28,9 @@ public class AddEmployee extends Employee {
 	 * @param employeeName
 	 * @param employeeAddress
 	 * */
-	public AddEmployee( String employeeName, String employeeAddress) {
+	public AddEmployee( String employeeName, String employeeAddress) {		//updated Code
 
-		super(++employeeId, employeeName, employeeAddress);
+		super(++employeeId, employeeName, employeeAddress);			//updated Code
 
 	}
 
@@ -41,7 +41,7 @@ public class AddEmployee extends Employee {
 
 		AddEmployee employee = (AddEmployee)o;
 
-		if(employee.getEmployeeName().equals(this.getEmployeeName())){
+		if(employee.getEmployeeName().equals(this.getEmployeeName())){			//updated Code
 
 			return true;
 
@@ -57,7 +57,7 @@ public class AddEmployee extends Employee {
 	public int hashCode() {
 
 
-		return this.getEmployeeName().hashCode();
+		return this.getEmployeeName().hashCode();				//updated Code
 
 	}
 
@@ -75,13 +75,13 @@ public class AddEmployee extends Employee {
 
 		HashSet<AddEmployee> employeeSet = new HashSet<AddEmployee>();
 
-		employeeSet.add(new AddEmployee("Pratap","jaipur"));
+		employeeSet.add(new AddEmployee("Pratap","jaipur"));				//updated Code
 
-		employeeSet.add(new AddEmployee("Vijay","jaipur"));
+		employeeSet.add(new AddEmployee("Vijay","jaipur"));				//updated Code
 
-		employeeSet.add(new AddEmployee("Rahul","jaipur"));
+		employeeSet.add(new AddEmployee("Rahul","jaipur"));				//updated Code
 
-		employeeSet.add(new AddEmployee("Ram","Chittorgarh"));			// tried to add duplicate data
+		employeeSet.add(new AddEmployee("Ram","Chittorgarh"));				//updated Code
 
 		employeeSet.add(new AddEmployee("Pratap","Bhilwara"));			// tried to add duplicate data
 
