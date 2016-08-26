@@ -1,0 +1,30 @@
+
+
+#divContainer {
+		background-color:lightgrey;
+		height:100%;
+		width:100%;
+		position: relative;
+}
+
+#divInner {
+	background-color:white;
+	margin:50px 10px 10px 10px;
+	height:90%;
+		width:98%;
+		position: absolute;
+}
+#divProfile1 {
+	background-color:lightblue;
+	height:10%;
+	postion:absolute;
+	margin:-10px 5px 5px 5px;
+	border-bottom:"1px solid black";
+	
+}
+
+h1{
+	text-align:center;
+	
+	
+}
