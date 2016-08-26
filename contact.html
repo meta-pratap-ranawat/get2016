@@ -1,8 +1,15 @@
+<!-- this Web page contains input for contact Information
+@author Pratap
+-->
 <html>
+	<!-- head part of html file -->
 	<head>
 		<title>HTML ASSIGNMENT 1</title>
+		<meta charset="UTF-8">
 	</head>
+	<!-- body part which displayed on web page  -->
 	<body>
+		<!-- nagivation bar  -->
 		<table align="center" cellspacing="10px">
 			<tr>
 				<td width="500"><img src="html5.png" height="50" alt="loading" /></td>
@@ -16,6 +23,8 @@
 				</td>
 			</tr>
 		</table>
+		
+		<!-- for Creating Horizontal Line using Table structure  -->
 		<table align="center" border="1" width="1300">
 			<tr></tr>
 		</table>
@@ -35,16 +44,16 @@
 		<table align=center>
 		<tr>
 			<td>Name</td>
-			<td><input type=text placeholder="Enter your name" /></td>
+			<td><input type=text placeholder="Enter your name" name ="name" /></td>
 		</tr>
 		<tr>
 			<td>Email</td>
-			<td><input type=text placeholder="Enter your email" /></td>
+			<td><input type=text placeholder="Enter your email" name ="email"/></td>
 		</tr>
 		<tr>
 			<td>City</td>
 			<td>
-				<select>
+				<select name="city">
 					<option>Jaipur</option>
 					<option>Bhilwara</option>
 					<option>Kota</option>
@@ -56,14 +65,14 @@
 		</tr>
 		<tr>
 			<td>Organization</td>
-			<td rowspan=2><input type=text placeholder="Enter organization" /></td>
+			<td rowspan=2><input type=text placeholder="Enter organization" name="organisation"/></td>
 		</tr>
 		<tr>
 			<td>Name</td>
 		</tr>
 		<tr>
 			<td>Contact</td>
-			<td><input type=text placeholder="Enter your Contact No." /></td>
+			<td><input type=text placeholder="Enter your Contact No." name="contactNo" /></td>
 		</tr>
 		<tr>
 			<td>Number</td>
@@ -89,6 +98,8 @@
 		<table align="center" border="1" width="1300">
 			<tr></tr>
 		</table>
+		
+		<!-- copy right footer of page  -->
 		<table align="center" width="1000">
 			<tr>
 				<p align=center>
