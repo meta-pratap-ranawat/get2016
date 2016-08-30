@@ -1,0 +1,63 @@
+/*
+* this is External Cascade Style Sheet used for index.html
+*/
+
+#divContainer {
+		background-color:lightgrey;
+		height:100%;
+		width:100%;
+		position: relative;
+}
+
+#divInner {
+	background-color:white;
+	margin:50px 10px 10px 10px;
+	height:90%;
+		width:98%;
+		position: absolute;
+}
+#divProfile1 {
+	background-color:lightblue;
+	height:10%;
+	postion:absolute;
+	margin:10px 5px 5px 5px;
+	border:1px solid grey;
+	
+}
+
+h1{
+	text-align:center;
+}
+
+#profileHead {
+	
+	padding-top: 4px;
+}
+
+#div1{
+	
+	position:relative;
+	float:left;
+	background-color:black;
+	color:white;
+	margin-left:40px;
+	height:150px;
+	width:300px;
+	text-align:center;
+	border-width:3px;	
+    border-style:double ;
+	padding-top:150px;
+		
+	
+}
+#div2 {
+	
+	position:relative;
+	float:right;
+	background-color:white;
+	color:black;
+	margin-right:400px;
+	height:600px;
+	width:700px;
+	text-align:left;
+}
