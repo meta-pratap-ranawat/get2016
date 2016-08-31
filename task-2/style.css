@@ -1,0 +1,98 @@
+
+
+.left {
+	
+	float: left;
+	
+}
+
+.right {
+
+	float: right;
+
+}
+
+.clear {
+	
+	clear: both;
+}
+
+#header{
+	
+	background-color: MidnightBlue;
+	
+	
+	
+}
+
+
+
+#header .right ul li a:active ,a:hover{
+	
+	color:white;
+}
+
+#header .right ul li a {
+	
+	color: #00bfff;
+	
+}
+
+#header .left ul li a {
+	
+	color: #fff;
+	
+}
+
+#header .right ul li a.active{
+	
+	color: #fff;
+	
+}
+
+
+
+#header .left ul li a {
+	text-decoration: none;
+}
+
+#header .left ul li {
+	
+	list-style-type: none;
+	display: inline ;
+	padding:0px 5px 5px 5px;
+}
+
+#header .right ul li a {
+	
+	text-decoration: none;
+}
+
+#header .right ul li {
+	
+	list-style-type: none;
+	display: inline ;
+	padding:0px 5px 5px 5px;
+}
+
+
+#header .right ul {
+	
+	margin-right:5px;
+	
+}
+
+
+#view1 .body {
+	
+	height: 720px;
+	width:100%;
+	background-color: DeepSkyBlue;
+	padding-top: 200px;
+}
+
+#view1 .center {
+	
+	float: center;
+	
+}
