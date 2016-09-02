@@ -146,7 +146,7 @@
 	height:800px;
 	width: 100%;
 	display:none;
-	background-color: #318dd6;
+	background-color: white;
 }
 #view2:target {
 	
@@ -154,4 +154,34 @@
 	
 }
 
+.width25 {
+	
+	width:25%;
+	height:100px;
+	text-align: center;
+	color:DeepSkyBlue;
+}
+.width25 h5 p {
+	text-align:left;
+	color:Black;
+	font-weight: lighter;
+	font-family: Arial, Helvetica, sans-serif;
+	padding-left: 10px;
+	padding-right:10px;
+}
+
+.width50 {
+	
+	width:50%;
+	height:100px;
+}
+.divLine {
+	width:100%;
+	height:25px;
+	text-align: center;
+	size: 10px;
+	padding-top: 25px;
+	font-weight: lighter;
+	font-family: Arial, Helvetica, sans-serif;
+}
 
