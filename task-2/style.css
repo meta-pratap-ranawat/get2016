@@ -19,10 +19,8 @@
 
 #header{
 	
-	background-color: MidnightBlue;
-	
-	
-	
+	background-color: #2D3E50;
+		
 }
 
 
@@ -143,7 +141,7 @@
 
 #view2 {
 	
-	height:800px;
+	height:780px;
 	width: 100%;
 	display:none;
 	background-color: white;
@@ -160,6 +158,7 @@
 	height:100px;
 	text-align: center;
 	color:DeepSkyBlue;
+	padding-bottom:10px;
 }
 .width25 h5 p {
 	text-align:left;
@@ -170,18 +169,141 @@
 	padding-right:10px;
 }
 
-.width50 {
+.width40 {
 	
-	width:50%;
-	height:100px;
+	width:40%;
+	height:150px;
+
+}
+
+.width60 {
+	
+	width:60%;
+	height:150px;
+	
+}
+.bgWhite .width40 {
+	
+	width:40%;
+	height:360px;
+
+}
+
+.bgWhite .width60 {
+	
+	width:60%;
+	height:360px;
+	
+}
+.bgWhite {
+	
+	background-color: white;
+}
+.bgRoyalBlue {
+	
+	background-color: #2D3E50;
 }
 .divLine {
 	width:100%;
 	height:25px;
-	text-align: center;
+	
 	size: 10px;
 	padding-top: 25px;
+	padding-bottom: 10px;
+	font-weight: lighter;
+	font-family: Arial, Helvetica, sans-serif;
+}
+.alCenter {
+	
+	text-align: center;
+	
+}
+.alLeft {
+	
+	text-align: left;
+	
+}
+.white {
+	
+	color: white;
+	
+}
+.gray {
+	
+	color: #888888;
+	
+}
+.black {
+	
+	size: 5px;
+	color:black;
+	font-weight: medium;
+	font-family: Arial, Helvetica, sans-serif;
+}
+#view2 .width40 img {
+	
+	height:100px;
+	padding-left:250px;
+	padding-top:25px;
+	
+}
+
+.divLine1 {
+	width:100%;
+	height:25px;
+	
+	size: 10px;
+	
 	font-weight: lighter;
 	font-family: Arial, Helvetica, sans-serif;
 }
 
+#signup
+{
+	color:white;
+	background-color:#318dd6;
+	
+	margin-top:10px; 
+	
+	
+	
+    border: none;
+	border-radius:5px;
+   
+    padding: 5px 8px;
+    text-align: center;
+   
+   
+    font-size: 10px;
+    
+    cursor: pointer;
+}
+
+.input
+{
+	width:100%;
+}
+
+.pad{
+	
+	padding-left:40px;
+	padding-right:40px;
+}
+
+.con {
+	
+	padding-top:10px;
+}
+
+
+.footer
+{
+	height:5%;
+	color:white;
+	
+	background-color:#2d3e50;
+	display:flex;
+	align-items:center;
+	justify-content:center;
+	
+}
