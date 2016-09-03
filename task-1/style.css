@@ -1,0 +1,93 @@
+/*
+* this file is external css
+*/
+div {
+	
+	margin: 150px 150px 150px 150px;
+	border: 5px ridge lightgray;
+	position: relative;
+	padding-top:65px;
+	text-align:center;
+	height: 80px;
+	width:150px;
+	background-color: gray;
+	
+	transition: transform 2s;
+	
+}
+
+@keyframes first {
+	0%   {background-color: #1234ff;}
+	25%  {background-color: #5566ff;}
+	50%  {background-color: #333333;}
+	100% {background-color: white;}
+}
+#first:hover{
+	
+	transform:rotate(180deg);
+	animation-name: first;
+    animation-duration: 2s;
+	animation-delay: 1s;
+	animation-iteration-count: infinite;
+	animation-direction: reverse;
+	
+}
+@keyframes second {
+	100% {background-color: white;}
+}
+#second:hover {
+	
+	transform:scale(2,2);
+	animation-name: second;
+    animation-duration: 2s;
+	animation-delay: 1s;
+	animation-iteration-count: infinite;
+	animation-direction: reverse;
+	
+}
+#third:hover {
+	
+	transform: skew(20deg,20deg);
+	
+}
+
+@keyframes fourth {
+	100% {background-color: white;}
+}
+
+#fourth:hover {
+	
+	transform: translate(255px, -255px);
+	animation-name: fourth;
+	animation-delay: 1s;
+	animation-iteration-count: infinite;
+	animation-direction: reverse;
+}
+
+#first {
+	
+	float: left;
+	
+}
+
+#second{
+	
+	float: right;
+	
+}
+
+#third {
+	float: right;
+	
+}
+#fourth {
+	
+	float: left;
+	
+}
+
+.clear {
+	
+	clear:both;
+	
+}
