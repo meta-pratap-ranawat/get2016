@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html>
+	<head>
+	
+		<title>HTML 2A</title>
+		<link rel="stylesheet" type="text/css" href="style.css">
+		
+		<link rel='stylesheet' href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.1/css/font-awesome.min.css">
+	
+	</head>
+	
+	
+	<body>
+	
+		
+			<div class="bgGray">
+							
+					<form>
+						
+						<div class="row">
+							<div class="left width40">
+							
+								<div class="right font black padR">
+							
+									First Name
+								
+								</div>
+								
+							</div>	
+							
+							<div class="width60 right">	
+							
+								<div class="left leftCorner border">
+							
+									<i class="fa fa-user pad" aria-hidden="true"></i>
+								
+								</div>
+							
+								<div class="left rightCorner border">
+							
+									<input class=input type=text placeholder="first name" pattern="[a-z A-Z]{3}[a-z A-Z]*" maxlength="20" required/>
+								
+								</div>
+								
+							</div>	
+						</div>	
+						
+						<div class="row">
+							<div class="left width40">
+							
+								<div class="right font black padR">
+							
+									Last Name
+								
+								</div>
+								
+							</div>	
+							
+							<div class="width60 right">	
+							
+								<div class="left leftCorner border">
+							
+									<i class="fa fa-user pad" aria-hidden="true"></i>
+								
+								</div>
+							
+								<div class="left rightCorner border">
+							
+									<input class=input type=text placeholder="last name" pattern="[a-z A-Z]{3}[a-z A-Z]*" maxlength="20" required/>
+								
+								</div>
+								
+							</div>	
+						</div>
+						
+						<div class="row">
+							<div class="left width40">
+							
+								<div class="right font black padR">
+							
+									E-Mail
+								
+								</div>
+								
+							</div>	
+							
+							<div class="width60 right">	
+							
+								<div class="left leftCorner border">
+							
+									<i class="fa fa-envelope-o pad" aria-hidden="true"></i>
+								
+								</div>
+							
+								<div class="left rightCorner border">
+							
+									<input class=input type=email placeholder="john@abc.com" required/>
+								
+								</div>
+								
+							</div>	
+						</div>
+						
+						<div class="row">
+							<div class="left width40">
+							
+								<div class="right font black padR">
+							
+									Phone
+								
+								</div>
+								
+							</div>	
+							
+							<div class="width60 right">	
+							
+								<div class="left leftCorner border">
+							
+									<i class="fa fa-phone pad" aria-hidden="true"></i>
+								
+								</div>
+							
+								<div class="left rightCorner border">
+							
+									<input class=input type=tel pattern="[0-9]{10}" placeholder="0141 2342346" />
+								
+								</div>
+								
+							</div>	
+						</div>
+						
+						
+						<div class="row">
+							<div class="left width40">
+							
+								<div class="right font black padR">
+							
+									Address
+								
+								</div>
+								
+							</div>	
+							
+							<div class="width60 right">	
+							
+								<div class="left leftCorner border">
+							
+									<i class="fa fa-home pad" aria-hidden="true"></i>
+								
+								</div>
+							
+								<div class="left rightCorner border">
+							
+									<input class=input type=text maxlength="50" placeholder="Address" />
+								
+								</div>
+								
+							</div>	
+						</div>
+						
+						
+						<div class="row">
+							<div class="left width40">
+							
+								<div class="right font black padR">
+							
+									City
+								
+								</div>
+								
+							</div>	
+							
+							<div class="width60 right">	
+							
+								<div class="left leftCorner border">
+							
+									<i class="fa fa-home pad" aria-hidden="true"></i>
+								
+								</div>
+							
+								<div class="left rightCorner border">
+							
+									<input class=input type=text placeholder="City" required/>
+								
+								</div>
+								
+							</div>	
+						</div>
+						
+						
+						<div class="row">
+							<div class="left width40">
+							
+								<div class="right font black padR">
+							
+									State
+								
+								</div>
+								
+							</div>	
+							
+							<div class="width60 right">	
+							
+								<div class="left leftCorner border">
+							
+									<i class="fa fa-list-ul pad" aria-hidden="true"></i>
+								
+								</div>
+							
+								<div class="left rightCorner border">
+							
+									<input class=input list="state" type="text" name="state" placeholder="Please select your state" required/>
+									<datalist id="state">
+										<option value="Assam">
+										<option value="Hariyana">
+										<option value="Rajasthan">
+										<option value="Andrapradesh">
+										<option value="Goa">
+									</datalist>
+								
+								</div>
+								
+							</div>	
+						</div>
+			
+						<div class="row">
+							<div class="left width40">
+							
+								<div class="right font black padR">
+							
+									ZipCode
+								
+								</div>
+								
+							</div>	
+							
+							<div class="width60 right">	
+							
+								<div class="left leftCorner border">
+							
+									<i class="fa fa-home pad" aria-hidden="true"></i>
+								
+								</div>
+							
+								<div class="left rightCorner border">
+							
+									<input class=input type=text placeholder="Zip Code" required/>
+								
+								</div>
+								
+							</div>	
+						</div>
+			
+						<div class="row">
+							<div class="left width40">
+							
+								<div class="right font black padR">
+							
+									Website or domain name
+								
+								</div>
+								
+							</div>	
+							
+							<div class="width60 right">	
+							
+								<div class="left leftCorner border">
+							
+									<i class="fa fa-globe pad" aria-hidden="true"></i>
+								
+								</div>
+							
+								<div class="left rightCorner border">
+							
+									<input class=input type=url placeholder="Web site or domain name" />
+								
+								</div>
+								
+							</div>	
+						</div>
+						
+						
+						<div class="row">
+							<div class="left width40">
+							
+								<div class="right font black padR">
+							
+									Do you have hosting
+								
+								</div>
+								
+							</div>	
+							
+							<div class="width60 right">	
+							
+								
+							
+								<div class="left">
+							
+									<div><input class=input type=radio name=host />Yes</div>
+									<div><input class=input type=radio name=host  />No</div>
+								
+								</div>
+								
+							</div>	
+						</div>
+			
+						
+						<div class="row">
+							<div class="left width40">
+							
+								<div class="right font black padR">
+							
+									Project Description
+								
+								</div>
+								
+							</div>	
+							
+							<div class="width60 right">	
+							
+								<div class="left leftCorner border">
+							
+									<i class="fa fa-pencil padP" aria-hidden="true"></i>
+								
+								</div>
+							
+								<div class="left rightCorner border">
+							
+									<input class=input type=textarea placeholder="Project Description" required/>
+								
+								</div>
+								
+							</div>	
+						</div>
+						
+						<div class="row">
+							<div class="left width40">
+								
+							</div>	
+							
+							<div class="width60 right">	
+							
+								<div>
+							
+									<button type="submit" class="yellow left Corner border  pad" value="">Send <i class="fa fa-rocket pad" aria-hidden="true"></i></button>
+								</div>
+								
+							</div>	
+						</div>
+						
+						
+			
+					</form>
+				
+			</div>
+			
+				
+	
+	</body>
+</html>
