@@ -1,0 +1,144 @@
+.left {
+	
+	float: left;
+	
+}
+
+.right {
+
+	float: right;
+
+}
+
+.clear {
+	
+	clear: both;
+}
+
+.leftCorner {
+	
+	border-radius: 5px 0px 0px 5px;
+	
+}
+
+.rightCorner {
+	
+	border-radius: 0px 5px 5px 0px;
+	
+}
+
+.Corner {
+	
+	border-radius: 5px;
+	
+}
+.border {
+	
+	border: 1px solid black;
+	
+}
+.pad {
+	
+	padding: 3px;
+	border-right-width: 0px;
+	
+}
+
+.padR {
+	
+	padding-right: 30px;
+	
+	
+}
+
+.padP {
+	
+	padding: 20px 3px 20px 3px;
+}
+
+.row {
+	
+	padding-top:30px;
+	clear: both;
+}
+
+input[type="text"] {
+    width: 230px;
+}
+
+input[type="email"] {
+    width: 230px;
+}
+
+input[type="tel"] {
+    width: 230px;
+}
+
+input[type="textarea"] {
+    width: 230px;
+	height:50px;
+}
+
+input[type="url"] {
+    width: 230px;
+}
+
+.con {
+	
+	width: 100%;
+	padding:100px 50px 0px 0px;
+	
+}
+
+.font {
+	
+	font-weight: bold;
+	
+	font-family: Arial, Helvetica, sans-serif;
+	
+}
+
+.white {
+	
+	color: white;
+	
+}
+
+.bgGray {
+	
+	background-color: #ccc;
+	height:770px;
+	
+}
+
+.black {
+	
+	color:black;
+	
+}
+.yellow {
+	
+	background-color: #994411;
+}
+
+.width40 {
+	
+	width:40%;
+}
+
+.width60 {
+	
+	width:60%;
+	
+}
+
+ input:required:invalid, input:focus:invalid {
+   border-color:red;
+   
+  }
+  input:required:valid {
+    
+    border-color: green;
+  }
+
+
