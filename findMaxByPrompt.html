@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+
+<html>
+	<head>
+	
+		<script type="text/javascript">
+		
+			function getNumber()
+			{
+			
+				  row=prompt("ENter A number");
+		
+				 if(isNaN(row))
+				 {
+			
+				  return getNumber();
+				}
+			       else { 
+			 		return parseInt(row);
+			      	}
+	
+			}
+			
+			function fnMax() {
+				
+			
+			var num1 = getNumber();
+			
+			var num2  = getNumber();
+			
+			var num3  = getNumber();
+			
+			//document.write(num1);
+			var max = (num1>num2) ? (num1>num3 ? num1 : num3) : (num2>num3 ? num2 : num3);
+			document.getElementById("ele").innerHTML=max;
+			
+			}
+		</script>
+		
+	</head>
+	<body>
+		<form>
+			<input type="button" value="max" onclick=fnMax()> </input>
+		</form>
+		<p id="ele">Ram</p>
+	</body>
+</html>

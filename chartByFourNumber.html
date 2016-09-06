@@ -1,0 +1,73 @@
+<html>
+<head>
+<title>
+Print Chart
+</title>
+
+<script type=text/javascript>
+		var numbers = new Array(4);
+
+		for(var i=0;i<numbers.length;i++)
+		{
+			numbers[i]=parseInt( getNumber() );
+		}
+		
+		
+		
+		var max=numbers[0];
+		for(var i=1;i<numbers.length;i++)
+		{
+			if(max<numbers[i])
+			{
+				max=numbers[i];
+			}
+		}
+		
+		
+		var row=max;
+		for(var i=0;i<row;i++)
+		{
+		
+			for(var j=0;j<numbers.length;j++)
+			{
+				
+				var temp = max -i;
+				
+				if(numbers[j]>=temp){
+
+					document.write("&nbsp;*");
+					
+				}else{
+
+					document.write("&nbsp;&nbsp;");
+
+				}
+
+			}
+
+			document.write("</br>");
+		}
+		
+		
+function getNumber()
+{
+
+	row=prompt();
+
+	if(isNaN(row))
+	{
+
+		 return getNumber();
+	}
+	else{
+	
+		return parseInt(row);
+		
+	}
+
+}
+
+</script>
+
+
+</html>
