@@ -1,0 +1,43 @@
+<html>
+	<head>
+		<title>
+		Table of Number
+		</title>
+		<script type=text/javascript>
+			
+			
+			
+			var number=getNumber();
+			document.write("<h2>Table for "+number+" </h2>");
+			for(var i=1;i<=10;i++)
+			{
+				document.write(number+"*"+i+"="+number*i);
+				document.write("</br>");
+			}
+			
+			function getNumber()
+			{
+			
+			row=prompt();
+		
+			if(isNaN(row))
+			{
+			return getNumber();
+			}
+			else
+			{
+			 return row;
+			}
+			
+			}
+			
+		
+		
+		
+		</script>
+	</head>
+	<body>
+	
+	</body>
+	
+</html>
