@@ -4,42 +4,32 @@
 	<head>
 	
 		<script type="text/javascript">
+		
+			function getNumber()
+			{
+			
+				  row=prompt("ENter A number");
+		
+				 if(isNaN(row))
+				 {
+			
+				  return getNumber();
+				}
+			       else { 
+			 		return parseInt(row);
+			      	}
+	
+			}
+			
 			function fnMax() {
+				
 			
-			var num1 = prompt("Enter Number");
-			if(isNaN(num1))
-			{
-			document.write("Plz enter number only ");
-			callprompt();
-			}
-			else
-			{
-			var num1=parseInt(num1);
-			}
+			var num1 = getNumber();
 			
+			var num2  = getNumber();
 			
-			var num2  = prompt("Enter Number");
-			if(isNaN(num2))
-			{
-			document.write("Plz enter number only ");
-			callprompt();
-			}
-			else
-			{
-			var num2=parseInt(num2);
-			}
+			var num3  = getNumber();
 			
-			
-			var num3  = prompt("Enter Number");
-			if(isNaN(num3))
-			{
-			document.write("Plz enter number only ");
-			callprompt();
-			}
-			else
-			{
-			var num3=parseInt(num3);
-			}
 			//document.write(num1);
 			var max = (num1>num2) ? (num1>num3 ? num1 : num3) : (num2>num3 ? num2 : num3);
 			document.getElementById("ele").innerHTML=max;
