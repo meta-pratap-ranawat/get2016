@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+
+<html>
+	<head>
+	
+		<script type="text/javascript">
+			function fnMax() {
+			
+			var num1 = prompt("Enter Number");
+			if(isNaN(num1))
+			{
+			document.write("Plz enter number only ");
+			callprompt();
+			}
+			else
+			{
+			var num1=parseInt(num1);
+			}
+			
+			
+			var num2  = prompt("Enter Number");
+			if(isNaN(num2))
+			{
+			document.write("Plz enter number only ");
+			callprompt();
+			}
+			else
+			{
+			var num2=parseInt(num2);
+			}
+			
+			
+			var num3  = prompt("Enter Number");
+			if(isNaN(num3))
+			{
+			document.write("Plz enter number only ");
+			callprompt();
+			}
+			else
+			{
+			var num3=parseInt(num3);
+			}
+			//document.write(num1);
+			var max = (num1>num2) ? (num1>num3 ? num1 : num3) : (num2>num3 ? num2 : num3);
+			document.getElementById("ele").innerHTML=max;
+			
+			}
+		</script>
+		
+	</head>
+	<body>
+		<form>
+			<input type="button" value="max" onclick=fnMax()> </input>
+		</form>
+		<p id="ele">Ram</p>
+	</body>
+</html>
