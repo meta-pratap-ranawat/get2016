@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+	
+	<title>radioAndDrop</title>
+	
+	<style type="text/css">
+	
+		#rj-citylist{
+		
+			display: none;
+			
+		}
+		
+		
+		#pb-citylist{
+		
+			display: none;
+			
+		}
+		
+		
+		#city{
+		
+			margin-top:70px;
+			
+			background-color: gray;
+		}
+		
+		
+		div {
+		
+		margin:100px;
+		
+		}
+		
+		
+		.left{
+		
+			float: left;
+			
+		}
+		
+		
+		.right {
+		
+			float: right;
+		
+		}
+	</style>
+	
+	<script type="text/javascript">
+		
+		function setRaj(){
+			document.getElementById("pb-citylist").style.display="none";
+			document.getElementById("rj-citylist").style.display="inline-block";
+	
+		}
+		
+		function setPunjab(){
+			document.getElementById("rj-citylist").style.display="none";
+			document.getElementById("pb-citylist").style.display="inline-block";
+	
+		}	
+	
+	</script>
+</head>
+
+<body>
+
+	<div>
+		<div class="left">
+		Choose State
+			<br>
+			<br>
+		<label>Rajasthan
+			<input type="radio" name="r1"   onclick="setRaj()">
+		</label> 
+			<br>
+		<label>Punjab
+			<input type="radio" name="r1"  onclick="setPunjab()">
+		</label>  
+			<br>
+		</div>
+		<div id="city" class="right">
+			Choose City
+			<select id="pb-citylist">
+				<option>--select city--</option>
+				<option>Ludhiana</option>
+				<option>Chandigarh</option>
+				<option>Jalandhar</option>
+			</select>
+	
+	
+			<select id="rj-citylist">
+				<option>--select city--</option>
+				<option>Jaipur</option>
+				<option>Kota</option>
+				<option>Bikaner</option>
+				<option>Jodhpur</option>
+				<option>Bhilwara</option>
+			</select>
+
+		</div>
+	</div>	
+
+
+</body>
+</html>
