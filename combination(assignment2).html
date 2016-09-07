@@ -4,11 +4,11 @@
 			<script type="text/javascript">
 			
 			function fnCheck(){
-						var num1 = var radios = document.getElementsByName('genderS');
+						var num1 = ( document.getElementById('r11').checked )? document.getElementById('r11').value : document.getElementById('r12').value;
 						
-						var num2 = (document.getElementById('ele2').value);
+						var num2 = ( document.getElementById('r21').checked )? document.getElementById('r21').value : document.getElementById('r22').value;
 						
-						window.alert("Your Sum  is "+num1+num2);
+						window.alert("Your Binary Combination  is "+num1+num2);
 						
 						}
 			
@@ -34,11 +34,11 @@
 	<div id="ele">
 			<form>
 				<div id="ele1">
-					<div class="ele1"><input type="radio"  name="num1" value=0 required/>0 bit<input type="radio"  name="num1" value=1 required/>1 bit</div>
+					<div class="ele1"><input type="radio"  name="r1" id="r11" value=0 required/>0 bit<input type="radio"  name="r1" id="r12" value=1 required/>1 bit</div>
 				</div>
 				
 				<div id="ele2">
-					<div class="ele1"><input type="radio"  name="num2"  value=0 required/>0 bit<input type="radio"  name="num2" value=1 required/>1 bit</div>
+					<div class="ele1"><input type="radio"  name="r2" id="r21"  value=0 required/>0 bit<input type="radio"  name="r2" id="r22" value=1 required/>1 bit</div>
 				</div>
 				
 				<div><button type="button" name="Go" value="Go" onclick=fnCheck()>Go</button></div>
