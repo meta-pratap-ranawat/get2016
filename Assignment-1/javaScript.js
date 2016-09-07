@@ -1,3 +1,6 @@
+/*  javascript for show/hide element*/
+
+// this function to show element
 function fnShow(){
   
   var obj = document.getElementById('none').style;
@@ -5,6 +8,7 @@ function fnShow(){
   
 }
 
+// this function to hide element
 function fnHide(){
   
   var obj = document.getElementById('none').style;
@@ -12,6 +16,8 @@ function fnHide(){
   
 }
 
+
+// this function to toggle element display
 function fnDisplay(){
   
   var obj = document.getElementById('none').style;
