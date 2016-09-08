@@ -5,52 +5,64 @@ function init() {
 	$("div.box:first").click(Q2);
 	$("button").click(Q3);
     $('img[alt="hello"]').click(Q4);
-    //$('#myDiv input[type="text"] input[name^='txt']').click(fnHide);
+    $('#myDiv input[type="text"]').find('input[name^="txt"]').click(Q5);
     $('p:not(.box)').click(Q6);
     $('div.box, div.error').click(Q7);
     $('div.box div.error').click(Q8);
-    $('div#myDiv span.info').click(Q9);
-}	
+    $("div#myDiv").find('span.info').click(Q9);
+}
 
-function Q1(){
+function Q1() {
+    
+  $(this).css("color", "red");
+    
+}
+
+function Q2() {
   
-  $(this).css("color","red");
+  $(this).css("background-color", "gray");
 
 }
 
-function Q2(){
+function Q3() {
   
-  $(this).css("background-color","gray");
+  $(this).css("color", "red");
 
 }
 
-function Q3(){
+function Q4() {
   
-  $(this).css("color","red");
+  $(this).css("height", "100px");
 
 }
 
-function Q4(){
+function Q5() {
   
-  $(this).css("height","100px");
+  $(this).css("height", "100px");
 
 }
 
-function Q6(){
+function Q6() {
   
-  $(this).css("color","gray");
+  $(this).css("color", "gray");
 
 }
 
-function Q7(){
+function Q7() {
   
-  $(this).css("background-color","black");
+  $(this).css("background-color", "black");
 
 }
 
-function Q8(){
+function Q8() {
   
-  $(this).css("background-color","yellow");
+  $(this).css("background-color", "yellow");
+
+}
+
+function Q9() {
+  
+  $(this).css("color", "white");
 
 }
 
