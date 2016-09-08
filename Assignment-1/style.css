@@ -1,0 +1,23 @@
+.left {
+  
+  float: left;
+}
+.right {
+  
+  float: right;
+}
+.clear {
+  
+  clear: both;
+}
+
+#none {
+  visibility:hidden;
+  background-color: gray;
+}
+.con div{
+  height: 100px;
+  border: 1px solid black;
+  margin:50px;
+  padding:10px;
+}
