@@ -1,0 +1,49 @@
+.left {
+  
+  float: left;
+}
+.right {
+  
+  float: right;
+}
+.clear {
+  
+  clear: both;
+    height: 0px;
+    width: 0px;
+    border-width: 0px;
+     margin:0px;
+  padding:0px;
+    
+}
+
+.row {
+    
+    clear:both;
+    height: auto;
+}
+
+.box {
+    
+    width: 30%;
+    min-width: 200px;
+    height:100px;
+    display: inline-block;
+}
+#none {
+  
+  background-color: gray;
+}
+.container div{
+  height: 600px;
+  border: 1px solid black;
+  margin:50px;
+  padding:10px;
+}
+
+.container {
+    
+    height: auto;
+    
+    border: 20px solid black;
+}
