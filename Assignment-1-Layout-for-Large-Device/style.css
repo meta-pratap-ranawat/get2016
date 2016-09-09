@@ -1,7 +1,14 @@
-.container-fluid .row {
+.container {
+    
+    border: 1px solid black;
+    background-color: antiquewhite;
+    padding-top:100px;
+   
+}
+
+.col{
     
     border: 1px solid black;
     
-    margin: 1px;
     height: 50px;
 }
