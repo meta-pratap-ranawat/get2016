@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang = "en">
+   <head>
+      <meta charset = "utf-8">
+      <title>jQuery UI Tabs functionality</title>
+     
+     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+      <script src = "http://code.jquery.com/ui/1.10.4/jquery-ui.js"></script>
+	<script src="https://api.jqueryui.com/1.9/tabs/"></script>
+		
+      <script>
+         $(function() {
+            $( "#tabs" ).tabs();
+         });
+      </script>
+		
+      <style>
+         #tabs{
+		 font-size: 14px;
+		 background-color:#DADADA;
+		 border-radius:5px;
+		 }
+          li{
+           
+            border: 1px solid #b9cd6d;
+           
+            font-weight: bold;
+			display:inline-block;
+			background-color:white;
+			
+			border-radius:5px;
+         }
+		 ul{
+		  background:#b9cd6d;
+		  padding:10px;
+		  }
+		  a{
+		  text-decoration:none;
+		  display:block;
+		  padding:15px;
+		  }
+		  a:hover
+		  {
+		  color:orange;
+		  }
+      </style>
+		
+   </head>
+	
+   <body>
+      <div id = "tabs">
+         <ul>
+            <li><a href = "#tabs-2">Tab 1</a></li>
+            <li><a href = "#tabs-3">Tab 2</a></li>
+            <li><a href = "#tabs-4">Tab 3</a></li>
+         </ul>
+			
+         <div id = "tabs-2">
+            <p>Neque porro quisquam est qui dolorem ipsum quia dolor sit 
+               amet, consectetur, adipisci velit... </p>
+         </div>
+			
+         <div id = "tabs-3">
+            <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, 
+               sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
+               Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris 
+               nisi ut aliquip ex ea commodo consequat. </p>
+         </div>
+			
+         <div id = "tabs-4">
+            <p>ed ut perspiciatis unde omnis iste natus error sit 
+               voluptatem accusantium doloremque laudantium, totam rem aperiam, 
+               eaque ipsa quae ab illo inventore veritatis et quasi architecto 
+               beatae vitae dicta sunt explicabo.  </p>
+					
+            <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, 
+               sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
+               Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris 
+               nisi ut aliquip ex ea commodo consequat. </p>
+         </div>
+			
+      </div>
+		
+   </body>
+	
+</html>
