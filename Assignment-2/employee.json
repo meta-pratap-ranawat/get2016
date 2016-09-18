@@ -1,0 +1,6 @@
+ {   "employee":[
+    {"name":"RamJi", "email":"ram.ji@metacube.com", "DOB":"21th Dec 1990", "Address":"New York US"},
+    {"name":"Rahul Kumar", "email":"rahul.kumar@metacube.com", "DOB":"13th Nov 1994", "Address":"Jaipur"},
+    {"name":"Peter Jones", "email":"peter.jones@metacube.com", "DOB":"1st Jan 2017", "Address":"XQDAM"}
+]
+}

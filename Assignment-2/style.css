@@ -1,0 +1,19 @@
+.container {
+    
+    border: 1px solid black;
+    background-color: antiquewhite;
+    padding-top:100px;
+   
+}
+
+.col{
+    
+    border: 1px solid black;
+    
+
+}
+#div1{
+    
+    padding: 20px;
+    
+}
