@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en" ng-app="myApp">
+  <head>
+    <meta charset="utf-8">
+    <title>Phone Gallery</title>
+    <link href="../bower_components/bootstrap/css/bootstrap.min.css" rel = "stylesheet">
+    <script src="../bower_components/angular/angular.js"></script>
+    <script src="app.js"></script>
+  </head>
+  <body>
+    <div ng-controller="PhoneListCtlr" class="container">
+      <div class="row">
+          <div class="col-md-2">
+             Search: <input ng-model="query">
+             Sort by:
+             <select ng-model="orderProp">
+               <option value="name">Alphabetical</option>
+               <option value="age">Newest</option>
+               <option value="-age">Oldest</option>
+             </select>
+          </div>
+          <div class="col-md-10">
+              <ul>
+                <li ng-repeat="phone in phones| filter:query | orderBy:orderProp">
+                  <span>{{phone.name}}</span>
+                  <p>
+                    {{phone.modelSlogal}}.
+                  </p>
+                </li>
+              </ul>
+            </div>
+      </div>
+    </div>
+  </body>
+</html>

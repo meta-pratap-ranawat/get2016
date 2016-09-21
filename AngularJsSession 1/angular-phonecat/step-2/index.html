@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en" ng-app="myApp">
+  <head>
+    <meta charset="utf-8">
+    <title>Phone Gallery</title>
+    <script src="../bower_components/angular/angular.js"></script>
+    <script src="app.js"></script>
+  </head>
+  <body>
+  <div ng-controller="PhoneListCtlr">
+    <ul>
+      <li ng-repeat="phone in phones">
+        <span>{{phone.name}}</span>
+        <p>
+          {{phone.modelSlogal}}.
+        </p>
+      </li>
+    </ul>
+    <p>Total Phone in List {{ phones.length}}</p>
+  </div>
+  </body>
+</html>
