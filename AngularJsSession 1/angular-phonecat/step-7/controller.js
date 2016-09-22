@@ -24,7 +24,5 @@ PhoneDetailCtlr.$inject =['$scope','$routeParams'];
 function PhoneDetailCtlr($scope, $routeParams) {
 
   $scope.name = $routeParams.name;
-
-  });
-
+  
 }
