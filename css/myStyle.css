@@ -1,0 +1,132 @@
+.heading{
+color:white;
+}
+a{
+color:white
+}
+.nav li a:hover{
+background-color:brown;
+}
+.round{
+border-radius:8px;
+}
+.textWhite{
+color:white
+}
+.textFont{
+font-size:20px
+}
+.btn-circle {
+  width: 30px;
+  height: 30px;
+  text-align: center;
+  padding: 6px 0;
+  font-size: 12px;
+  line-height: 1.428571429;
+  border-radius: 15px;
+  border:solid 2px white
+}
+.btn-circle.btn-lg {
+  width: 50px;
+  height: 50px;
+  padding: 10px 16px;
+  font-size: 18px;
+  line-height: 1.33;
+  border-radius: 25px;
+}
+.panel-height{
+height:50px
+}
+.red{
+    color: #a94442;
+}
+
+.green{
+    color: #3c763d;
+}
+
+.brown{
+    color: #8a6d3b;
+}
+.bg-green{
+    background-color: #5cb85c;
+}
+
+#myModal .notification-modal{
+    background-color: #b8b739;
+
+}
+
+#myModal .notification-modal button{
+    position: absolute;
+    right: -8px;
+    top: -8px;
+    background: white;
+    opacity: 1;
+    color: #3d3d3d;
+    border: none;
+    width: 24px;
+    height: 24px;
+    padding: 4px 8px;
+    font-size: 16px;
+    line-height: 0.33;
+    border-radius: 25px;
+}
+
+#myModal .modal-body{
+    padding: 0px;
+}
+
+#myModal .modal-footer{
+    padding: 24px;
+}
+
+#myModal .modal-body .myindicators{
+    bottom: -40px;
+}
+
+#myModal .modal-body .myindicators li{
+    background-color: #989898;
+}
+#myModal .modal-body .myindicators li.active{
+    background-color: #000000;
+}
+
+#myModal .modal-body .anp-body a{
+    text-decoration: none;
+    text-shadow: none;
+    color: white;
+}
+
+#myModal .modal-body .anp-body a:hover{
+    text-decoration: none;
+    color: white;
+}
+
+#myCarousel .carousel-control{
+    width: 6%;
+    color: #b1b1b1;
+    opacity: 1;
+    background-image: none;
+    text-shadow: none;
+
+}
+
+#myCarousel .carousel-inner{
+    padding-left: 7%;
+    padding-right: 7%;
+    color: black;
+
+}
+
+#myaccordion .panel-heading{
+    background-color: #009688;
+    color: #fdfefe;
+}
+
+#myaccordion  span{
+    position: relative;
+    top: -16px;
+    right: 0px;
+    color: #fdfefe;
+}
