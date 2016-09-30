@@ -1,2 +1,2 @@
 
-# RestDemoProject is dummy project (do not check it)
+# RestDemoProject folder is containing dummy project (do not check it)
