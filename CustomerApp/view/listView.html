@@ -1,0 +1,17 @@
+<!-- tab two start here-->
+<div id="menu1" class="tab-pane fade">
+
+    <ul>
+      <li data-ng-repeat="customer in customers | filter : myFilter">
+        <div class="panel panel-success">
+          <div class="panel-heading">{{ customer.firstName }} {{ customer.lastName }}</div>
+          <div class="panel-body">
+        <div>  <label>Address: </label>{{ customer.address}}</div>
+        <div>  <label>Orders: </label>{{ customer.numberOfOrders }} </div>
+          </div>
+        </div>
+      </li>
+    </ul>
+    <p></p>
+
+</div>
