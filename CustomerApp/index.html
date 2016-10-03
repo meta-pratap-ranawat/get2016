@@ -1,0 +1,45 @@
+<!doctype html>
+  <html lang="en" data-ng-app="myJava">
+    <head>
+      <title>Customer App</title>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <link href="bower_components/bootstrap/css/bootstrap.min.css" rel ="stylesheet">
+      <link rel="stylesheet" href="bower_components/font-awesome/css/font-awesome.min.css">
+      <script src="bower_components/jQuery/jquery-3.1.0.min.js"></script>
+      <script src="bower_components/bootstrap/js/bootstrap.min.js"></script>
+        <script src="bower_components/angular/angular.min.js"></script>
+        <script src="bower_components/angular/angular-route.js"></script>
+      <script src="app/js/controllers.js"></script>
+      <link rel="stylesheet" type="text/css" href="app/css/myStyle.css">
+    </head>
+    <body data-ng-controller="listView">
+      <div class="container">
+
+        <div class="row">
+          <h1>Customers </h1>
+        </div>
+        <div class="row">
+          <div class="row">
+            <div class="col-md-4">
+              <ul class="nav nav-pills">
+                <li class="active"><a data-toggle="pill" href="#home"><i class="fa fa-th-large" aria-hidden="true"></i> Card View</a></li>
+                <li ><a data-toggle="pill" href="#menu1"><i class="fa fa-list" aria-hidden="true"></i> List View</a></li>
+                <li ><a data-toggle="pill" href="#menu2"><i class="fa fa-plus" aria-hidden="true"></i> Add Customers</a></li>
+              </ul>
+            </div>
+            <div class="col-md-4 col-md-offset-4">
+              <label>filter : </label>
+              <input data-ng-model="myFilter.firstName" placeholder="first Name">
+              <input data-ng-model="myFilter.lastName" placeholder="last Name">
+            </div>
+          </div>
+
+
+          <div class=" row tab-content" data-ng-view>
+
+          </div>
+        </div>
+      </div>
+    </body>
+  </html>

@@ -1,0 +1,14 @@
+ul li {
+
+   text-decoration: none;
+   list-style-type: none;
+}
+
+.row .panel .panel-heading h5 {
+   display: inline;
+}
+
+.row .panel {
+
+  margin-top: 20px;
+}

@@ -1,0 +1,23 @@
+[
+ {
+   "id": "motorola-defy-with-motoblur",
+   "name": "Motorola E3",
+   "modelSlogal": "Go faster with E series",
+   "imageUrl": "../img/phones/motorola-defy-with-motoblur.0.jpg",
+   "age": 2
+ },
+
+ {
+   "name": "MI 3S Prim",
+   "modelSlogal": "New HD life with LTE",
+   "imageUrl": "../img/phones/motorola-defy-with-motoblur.1.jpg",
+   "age": 1
+ },
+
+ {
+   "name": "LYF flame 7",
+   "modelSlogal": "Jio life",
+   "imageUrl": "../img/phones/motorola-defy-with-motoblur.2.jpg",
+   "age": 3
+ }
+]
