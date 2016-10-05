@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xmlns="http://xmlns.jcp.org/xml/ns/javaee" 
+	xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee 
+	http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd" id="WebApp_ID" version="3.1">
+  <display-name>carDekho</display-name>
+  <welcome-file-list>
+   
+    <welcome-file>/view/index.jsp</welcome-file>
+    
+  </welcome-file-list>
+  
+  
+  <servlet>
+  	<servlet-name>listCarsController</servlet-name>
+  	<servlet-class>com.controller.ListCars</servlet-class>
+  </servlet>
+  <servlet-mapping>
+  	<servlet-name>listCarsController</servlet-name>
+  	<url-pattern>/carlist</url-pattern>
+  </servlet-mapping>
+  
+  
+  <servlet>
+  	<servlet-name>detailsOfCarController</servlet-name>
+  	<servlet-class>com.controller.DetailsOfCar</servlet-class>
+  </servlet>
+  <servlet-mapping>
+  	<servlet-name>detailsOfCarController</servlet-name>
+  	<url-pattern>/details</url-pattern>
+  </servlet-mapping>
+  
+  
+  <servlet>
+  	<servlet-name>carForm</servlet-name>
+  	<servlet-class>com.controller.CarForm</servlet-class>
+  </servlet>
+  <servlet-mapping>
+  	<servlet-name>carForm</servlet-name>
+  	<url-pattern>/carform</url-pattern>
+  </servlet-mapping>
+  
+  
+  <servlet>
+  	<servlet-name>insertUpdate</servlet-name>
+  	<servlet-class>com.controller.EditDetails</servlet-class>
+  </servlet>
+  <servlet-mapping>
+  	<servlet-name>insertUpdate</servlet-name>
+  	<url-pattern>/submitform</url-pattern>
+  </servlet-mapping>
+  
+</web-app>
