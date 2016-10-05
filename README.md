@@ -1,4 +1,6 @@
 
- controllers are added in src/com folder 
 
- jsp files in  WebContent folder
+
+ controllers are added in com.controller package 
+
+ jsp files in  WebContent/view folder
