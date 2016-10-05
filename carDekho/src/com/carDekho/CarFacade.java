@@ -31,7 +31,7 @@ public class CarFacade {
 	 * @param id - The id of the car whose details needs to be fetched
 	 * @return - The object of Car class
 	 */
-	public List<Car> getCarDetailsById(int id) {
+	public Car getCarDetailsById(int id) {
 		CarDao carDao = new CarDao();
 		//Getting the result set
 		return carDao.findCarbyId(id);

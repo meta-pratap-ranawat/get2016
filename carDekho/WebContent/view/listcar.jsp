@@ -8,13 +8,13 @@
 
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
-	<title>Insert title here</title>
+	<title>Listing of Cars</title>
 	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
 </head>
 
 <body>
 	<div class="container">
-		<table class="table table-bordered">
+		<table class="table table-bordered table-striped">
 			<tr>
 				<th>Model</th>
 				<th>Make</th>

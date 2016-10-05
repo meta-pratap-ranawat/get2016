@@ -5,7 +5,7 @@
 <html>
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
-	<title>Insert title here</title>
+	<title>Enter Car Details</title>
 	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
 </head>
 <body>
@@ -78,8 +78,8 @@
 				    <div class="col-xs-5">
 				        <select class=form-control id="ac" name="ac" value="<% if(car!=null) {out.println(car.getAc());} %>" required>
 				        	<option value="">Select</option>
-				        	<option value="Yes">Yes</option>
-				        	<option value="No">No</option>
+				        	<option value=1>Yes</option>
+				        	<option value=0>No</option>
 				        </select>
 				    </div>
 				</div>
@@ -90,8 +90,8 @@
 				    <div class="col-xs-5">
 				        <select class=form-control id="steering" name="steering" value="<% if(car!=null) {out.println(car.getPowerSteering());} %>" required>
 				        	<option value="">Select</option>
-				        	<option value="Yes">Yes</option>
-				        	<option value="No">No</option>
+				        	<option value=1>Yes</option>
+				        	<option value=0>No</option>
 				        </select>
 				    </div>
 				</div>
@@ -102,8 +102,8 @@
 				    <div class="col-xs-5">
 				        <select class=form-control id="kit" name="kit" value="<% if(car!=null) {out.println(car.getAccessoryKit());} %>" required>
 				        	<option value="">Select</option>
-				        	<option value="Yes">Yes</option>
-				        	<option value="No">No</option>
+				        	<option value=1>Yes</option>
+				        	<option value=0>No</option>
 				        </select>
 				    </div>
 				</div>

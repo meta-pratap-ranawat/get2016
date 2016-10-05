@@ -21,7 +21,7 @@ public class ListCars extends HttpServlet {
 		//Getting the object of Car Facade Class
 		CarFacade facade = CarFacade.getFacade();
 		//Getting the request dispatcher object
-		RequestDispatcher dispatcher = request.getRequestDispatcher("/view/listCar.jsp");
+		RequestDispatcher dispatcher = request.getRequestDispatcher("/view/listcar.jsp");
 		ServletContext context = getServletContext();
 		
 		//Setting the list of cars as attribute to the request context

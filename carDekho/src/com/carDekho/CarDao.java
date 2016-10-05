@@ -57,18 +57,18 @@ public class CarDao {
 	}
 
 	
-	public List<Car> findCarbyId(int idToFind) {
+	public Car findCarbyId(int idToFind) {
 
 		String query = "SELECT * FROM cars where id = " + idToFind;
 		PreparedStatement st;
-		List<Car> carList = new ArrayList<Car>();
+		Car car=null;
 		try {
 			st = connection.prepareStatement(query);
 			ResultSet resultset = st.executeQuery();
 
 			// add all the data to list of Car
 			while (resultset.next()) {
-				Car car = new Car();
+				 car = new Car();
 				car.setId(resultset.getInt(id));
 				
 				car.setMake(resultset.getString(make));
@@ -81,12 +81,12 @@ public class CarDao {
 				car.setAc(resultset.getInt(ac));
 				car.setPowerSteering(resultset.getInt(powerSteering));
 				car.setAccessoryKit(resultset.getInt(accessoryKit));
-				carList.add(car);
+				
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-		return carList;
+		return car;
 	}
 
 	

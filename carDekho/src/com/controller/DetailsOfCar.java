@@ -10,6 +10,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.carDekho.Car;
 import com.carDekho.CarFacade;
 
 @SuppressWarnings("serial")
@@ -21,11 +22,11 @@ public class DetailsOfCar extends HttpServlet{
 		//Getting the object of Car Facade Class
 		CarFacade facade = CarFacade.getFacade();
 		//Getting the request dispatcher object
-		RequestDispatcher dispatcher = request.getRequestDispatcher("/view/carDetails.jsp");
+		RequestDispatcher dispatcher = request.getRequestDispatcher("/view/cardetails.jsp");
 		
 		ServletContext context = getServletContext();	
 		//Setting the carVO Object to the request context
-		context.setAttribute("carDetails", facade.getCarDetailsById(Integer.parseInt(request.getParameter("id"))));
+		context.setAttribute("carDetails", (Car) facade.getCarDetailsById(Integer.parseInt(request.getParameter("id"))));
 		
 		try {
 			//Closing the Facade Object
