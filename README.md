@@ -1,2 +1,2 @@
 
-# get2016
+# HQL is added only ( same as tf2 )
