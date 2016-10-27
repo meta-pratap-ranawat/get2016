@@ -1,7 +1,7 @@
 /* The controller for getting the car list */
 listOfCars.controller('carList', ['$scope', '$http', function($scope, $http) {
 
-	console.log("calling carlist 1");
+	
     /* For getting the list of cars available */
     $scope.loadCars = function(){
         $http({
@@ -16,7 +16,7 @@ listOfCars.controller('carList', ['$scope', '$http', function($scope, $http) {
         });  
     }
   
-    console.log("calling carlist 2");
+   
 }]);
 
 ; 
@@ -27,7 +27,7 @@ listOfCars.controller('carList', ['$scope', '$http', function($scope, $http) {
 listOfCars.controller('details',['$scope', '$http',  function($scope, $http) {
 
     /* For loading the car details */
-	console.log("calling carlist 1");
+	
 	
     $scope.getCarDetail = function(id){
         $http({
@@ -41,7 +41,7 @@ listOfCars.controller('details',['$scope', '$http',  function($scope, $http) {
         });
     }
     
-    console.log("calling carlist 2");
+    
 }]);
 
 /* Controller for the car create and edit form */
