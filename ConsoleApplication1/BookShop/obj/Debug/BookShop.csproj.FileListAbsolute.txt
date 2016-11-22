@@ -1,0 +1,5 @@
+C:\Users\Pratap\Documents\Visual Studio 2013\Projects\ConsoleApplication1\BookShop\bin\Debug\BookShop.dll
+C:\Users\Pratap\Documents\Visual Studio 2013\Projects\ConsoleApplication1\BookShop\bin\Debug\BookShop.pdb
+C:\Users\Pratap\Documents\Visual Studio 2013\Projects\ConsoleApplication1\BookShop\obj\Debug\BookShop.csprojResolveAssemblyReference.cache
+C:\Users\Pratap\Documents\Visual Studio 2013\Projects\ConsoleApplication1\BookShop\obj\Debug\BookShop.dll
+C:\Users\Pratap\Documents\Visual Studio 2013\Projects\ConsoleApplication1\BookShop\obj\Debug\BookShop.pdb
