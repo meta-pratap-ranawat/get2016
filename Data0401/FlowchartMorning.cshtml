@@ -169,11 +169,11 @@
             
         
             //selection movement in diagram #start using tab(forward) and shift+tab(backward)
-            document.getElementById("myDiagramDiv").addEventListener("keydown", myScript);
+            document.getElementById("myDiagramDiv").addEventListener("keydown", checkKeyDown);
 
-            function myScript(event) {
+            function checkKeyDown(event) {
                 event.preventDefault();
-                // shift+tab for forward move #updateSelection(true) and tab for backward #updateSelection(false)
+                // tab for forward move #updateSelection(true) and shift+tab for backward #updateSelection(false)
                 (event.shiftKey && event.keyCode=='9') ? updateSelection(false): ((event.keyCode == '9') ? updateSelection(true): null);
             }
 
@@ -187,7 +187,7 @@
             }
 
             // sort Nodes data on location based and return sorted array
-            function sortNodesOnLocation() {
+            function sortNodesByLocation() {
                 var map = new go.Map(go.Point, go.Node);
                 var points = [];
                 myDiagram.nodes.each(function (node) {
@@ -225,9 +225,10 @@
                 }
             }
 
+            //update selection of node
             function updateSelection(forward) {
                 var sel = myDiagram.selection.first();
-                var nodeData = sortNodesOnLocation();
+                var nodeData = sortNodesByLocation();
                 if (sel == null) {      //if nothing is selected in diagram then it select first node of diagram
                     forward ? myDiagram.select(nodeData.elt(0)) : myDiagram.select(nodeData.elt(nodeData.length - 1));   
                 } else {
