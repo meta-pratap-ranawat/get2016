@@ -168,7 +168,7 @@
 
             
         
-            //selection movement in diagram #start using tab(forward) and shift+tab(backward)
+             //selection movement in diagram #start using tab(forward) and shift+tab(backward)
             document.getElementById("myDiagramDiv").addEventListener("keydown", checkKeyDown);
 
             function checkKeyDown(event) {
@@ -208,7 +208,7 @@
             }
 
             // select next node from array
-            function selectNextNode(node, nodeData) {
+            function fncSelectNextNode(node, nodeData) {
                 for (var i = 0; i < nodeData.length; i++) {
                     if (node == nodeData.elt(i)) {
                         (i == nodeData.length - 1) ? myDiagram.select(nodeData.elt(0)) : myDiagram.select(nodeData.elt(i + 1)); 
@@ -227,47 +227,50 @@
 
             //update selection of node
             function updateSelection(forward) {
-                var sel = myDiagram.selection.first();
+                var selectedPart = myDiagram.selection.first();
                 var nodeData = sortNodesByLocation();
-                if (sel == null) {      //if nothing is selected in diagram then it select first node of diagram
-                    forward ? myDiagram.select(nodeData.elt(0)) : myDiagram.select(nodeData.elt(nodeData.length - 1));   
+                if (selectedPart == null) {      //if nothing is selected in diagram then it select first node of diagram or diagram is emptyl
+                    try {
+                        forward ? myDiagram.select(nodeData.elt(0)) : myDiagram.select(nodeData.elt(nodeData.length - 1));      //check for movement forward(forward=true) or backward(forward=false)
+                    } catch (err) {
+                        console.log("diagram has no shapes/node");  // here we can add required action
+                    }
                 } else {
-                    if (sel instanceof go.Node) {       //if node is selected then
-                        if (nodeHasLinkOut(sel) ) {         // checks whether it has Out link 
+                    if (selectedPart instanceof go.Node) {       //if node is selected then
+                        if (nodeHasLinkOut(selectedPart) ) {         // checks whether it has Out link 
                             var selectFirstLink = true;
-                            sel.findLinksOutOf().each(function (link) {
+                            selectedPart.findLinksOutOf().each(function (link) {
                                 if (selectFirstLink) {
                                     myDiagram.select(link);
                                     selectFirstLink = false;
                                 }
                             });
                         } else {                                //when node has no out link from it
-                            var flag = true;
-                            var i = 0;
+                            var selectNextNode = true;
                             myDiagram.nodes.each(function (node) {
-                                if (node == sel && flag) {
-                                    forward ? selectNextNode(node,nodeData) : selectPrevNode(node,nodeData);
-                                    flag = false;
+                                if (node == selectedPart && selectNextNode) {
+                                    forward ? fncSelectNextNode(node, nodeData) : selectPrevNode(node, nodeData);       //check for movement forward(forward=true) or backward(forward=false)
+                                    selectNextNode = false;
                                 }
                             });
                         }
                     } else {                    // if link is selected then
-                        var flag = false;
-                        sel.fromNode.findLinksOutOf().each(function (link) {    //check for next link of node from which selected link out
-                            if (flag == true) {
+                        var selectNextPart = false;
+                        selectedPart.fromNode.findLinksOutOf().each(function (link) {    //check for next link of node from which selected link out
+                            if (selectNextPart == true) {
                                 myDiagram.select(link);
-                                flag = false;
+                                selectNextPart = false;
                             }
-                            if (link == sel) {
-                                flag = true;
+                            if (link == selectedPart) {
+                                selectNextPart = true;
                             }
                         });
-                        if (flag == true) {         // selected link is last link from fromNode then
-                            var flagL = true;
+                        if (selectNextPart == true) {         // selected link is last link from fromNode then
+                            var selectNextNode = true;
                             myDiagram.nodes.each(function (node) {          // check for next node
-                                if (node == sel.fromNode && flagL) {
-                                    forward ? selectNextNode(node, nodeData) : selectPrevNode(node, nodeData);
-                                    flagL = false;
+                                if (node == selectedPart.fromNode && selectNextNode) {
+                                    forward ? fncSelectNextNode(node, nodeData) : selectPrevNode(node, nodeData);      //check for movement forward(forward=true) or backward(forward=false)
+                                    selectNextNode = false;
                                 }
                             });
                         }
