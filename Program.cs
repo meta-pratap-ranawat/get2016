@@ -1,10 +1,13 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Security.Cryptography.X509Certificates;
+
 using System.Text;
 using System.Threading.Tasks;
+using System.IdentityModel.Selectors;
 
 namespace ClientCaller
 {
@@ -12,18 +15,19 @@ namespace ClientCaller
     {
         private static X509Certificate2 GetClientCertificate()
         {
-            Console.WriteLine("debugtoCheck");
+            Console.WriteLine("InSideGetClientCertificate");
             X509Store userCaStore = new X509Store(StoreName.My, StoreLocation.CurrentUser);
             try
             {
-                Console.WriteLine("debugtoCheck");
+                
                 userCaStore.Open(OpenFlags.ReadOnly);
                 X509Certificate2Collection certificatesInStore = userCaStore.Certificates;
                 X509Certificate2Collection findResult = certificatesInStore.Find(X509FindType.FindBySubjectName, "localtestclientcert", true);
                 X509Certificate2 clientCertificate = null;
+                Console.WriteLine("We have clientCertificate: ");
                 if (findResult.Count == 1)
                 {
-                    clientCertificate = findResult[0]; Console.WriteLine("got client");
+                    clientCertificate = findResult[0]; Console.WriteLine("Yes Got it");
                 }
                 else
                 {
@@ -43,39 +47,32 @@ namespace ClientCaller
 
         static void Main(string[] args)
         {
-            //HttpClient client = new HttpClient()
-            //{
-            //    BaseAddress = new Uri("http://localhost:56949/")
-            //};
-
-            //HttpResponseMessage response = client.GetAsync("customers").Result;
-            //string responseContent = response.Content.ReadAsStringAsync().Result;
-            //Console.WriteLine(responseContent);
-            //Console.ReadKey();
-
+           
             try
             {
-                Console.WriteLine("debugtoCheck");
+                
                 X509Certificate2 clientCert = GetClientCertificate();
-                Console.WriteLine("debug one"+ clientCert==null);
+                
                 WebRequestHandler requestHandler = new WebRequestHandler();
                 requestHandler.ClientCertificates.Add(clientCert);
-
+                Console.WriteLine("adding client certificate with requestHandler");
                 HttpClient client = new HttpClient(requestHandler)
                 {
-                    BaseAddress = new Uri("http://localhost:3020/")
+                    BaseAddress = new Uri("https://localhost/")
                 };
-
-                HttpResponseMessage response = client.GetAsync("customers").Result;
-                response.EnsureSuccessStatusCode();
+                Console.WriteLine("Hitting URL");
+                HttpResponseMessage response = client.GetAsync("customers").Result; Console.WriteLine(" getting response");
+                response.EnsureSuccessStatusCode(); 
                 string responseContent = response.Content.ReadAsStringAsync().Result;
-                Console.WriteLine(responseContent);
+                Console.WriteLine("debugtoCheck"+responseContent);
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Exception while executing the test helllo code: {0}", ex.Message);
+                Console.WriteLine("Exception while executing the test code: {0}", ex.Message);
             }
-            Console.ReadKey();
+            Console.ReadKey(); 
+
+
         }
     }
 }
