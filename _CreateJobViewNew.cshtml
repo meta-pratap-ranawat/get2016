@@ -1,0 +1,2362 @@
+﻿<script type="text/javascript" src="~/Scripts/CanvasLib/go.js"></script>
+
+<script src="~/Scripts/knockout-3.4.0.js"></script>
+<script src="~/Scripts/knockout-3.4.0.debug.js"></script>
+<script type="text/javascript" id="code">
+        var diagrams = [];
+        var currentDiagram;
+        var myDiagramModalInputTable;
+        var myDiagramModalOutputTable;
+
+        var fieldsIP = [];
+        var fieldsOP = [];
+        var existingTable = [];
+        var currentStep;
+        var mapRowCount = 0;
+        var selectedValue1;
+        var selectedValue2;
+
+        var MINLENGTH = 10;  // this controls the minimum length of any swimlane
+        var MINBREADTH = 100;
+
+        var myDiagram;
+        var myPalette1;
+        var myPalette2;
+        var myPalette3;
+
+        var currentJobID;
+
+
+        // this may be called to force the lanes to be laid out again
+        function relayoutLanes() {
+            myDiagram.nodes.each(function (lane) {
+                if (!(lane instanceof go.Group)) return;
+                lane.layout.isValidLayout = false;  // force it to be invalid
+            });
+            myDiagram.layoutDiagram();
+        }
+
+        // this is called after nodes have been moved or lanes resized, to layout all of the Pool Groups again
+        function relayoutDiagram() {
+            myDiagram.layout.invalidateLayout();
+            myDiagram.layoutDiagram();
+        }
+
+
+        // compute the minimum size for a particular Lane Group
+        function computeLaneSize(lane) {
+            var sz = computeMinLaneSize(lane);
+            if (lane.isSubGraphExpanded) {
+                var holder = lane.placeholder;
+                if (holder !== null) {
+                    var hsz = holder.actualBounds;
+                    sz.width = Math.max(sz.width, hsz.width);
+                    sz.height = Math.max(sz.height, hsz.height);
+                }
+            }
+            // minimum breadth needs to be big enough to hold the header
+            var hdr = lane.findObject("HEADER");
+            if (hdr !== null) sz.width = Math.max(sz.width, hdr.actualBounds.width);
+            return sz;
+        }
+
+        // determine the minimum size of a Lane Group, even if collapsed
+        function computeMinLaneSize(lane) {
+            if (!lane.isSubGraphExpanded) return new go.Size(1, MINLENGTH);
+            return new go.Size(MINBREADTH, MINLENGTH);
+        }
+
+
+        // define a custom ResizingTool to limit how far one can shrink a lane Group
+        function LaneResizingTool() {
+            go.ResizingTool.call(this);
+        }
+        go.Diagram.inherit(LaneResizingTool, go.ResizingTool);
+
+        var currentGroup;
+        LaneResizingTool.prototype.resize = function (newr) {
+            currentGroup = this.adornedObject.part;
+            go.ResizingTool.prototype.resize.call(this, newr);
+            relayoutDiagram();  // now that the lane has changed size, layout the pool again
+        };
+
+        function GroupLayout() {
+            go.GridLayout.call(this);
+        }
+
+        go.Diagram.inherit(GroupLayout, go.Layout);
+
+        GroupLayout.prototype.doLayout = function (coll) {
+            var diagram = this.diagram;
+            diagram.startTransaction("GroupLayout");
+            var lane = this.group;
+            if (currentGroup != null)
+            { lane = currentGroup; }
+            if (lane !== null) {
+                // make sure all of the Group Shapes are big enough
+                if (!(lane instanceof go.Group)) return;
+
+                var shape = lane.resizeObject;
+                if (shape !== null) {  // change the desiredSize to be big enough in both directions
+                    var sz = computeLaneSize(lane);
+                    shape.width = (!isNaN(shape.width)) ? Math.max(shape.width, sz.width) : sz.width;
+                    shape.height = (!isNaN(shape.height)) ? Math.max(shape.height, sz.height) : sz.height;
+                }
+            }
+            // now do all of the usual stuff, according to whatever properties have been set on this GridLayout
+            //go.GridLayout.prototype.doLayout.call(this);
+            go.Layout.prototype.doLayout.call(this, coll);
+            diagram.commitTransaction("GroupLayout");
+        };
+        var executeDragOver = false;
+        function init() {
+            if (window.goSamples) goSamples();  // init for these samples -- you don't need to call this
+            var GoJs = go.GraphObject.make;  // for conciseness in defining templates
+
+            myDiagram =
+              GoJs(go.Diagram, "myDiagramDiv",  // must name or refer to the DIV HTML element
+                {
+                    //doubleClick: showJobModal,
+                    initialContentAlignment: go.Spot.Center,
+                    resizingTool: new LaneResizingTool(),
+                    layout: GoJs(GroupLayout),
+                    mouseDragOver: function (e) {
+                        if (executeDragOver) {
+                            executeDragOver = false;
+                            var nodeCount = 0;
+                            var it = myDiagram.toolManager.draggingTool.draggingParts.iterator;
+                            while (it.next()) {
+                                if (nodeCount > 0) {
+                                    var node = it.value;
+                                    node.containingGroup.collapseSubGraph();
+                                }
+                                nodeCount++;
+                            }
+                        }
+                        //gggg.opacity = 0.1;
+                        //gggg.isSubGraphExpanded = false;
+                        //resizeGroup(gggg);
+                    },
+                    ExternalObjectsDropped: function (e) {
+                        e.subject.each(function (node) {
+                            node.opacity = 1;
+                        });
+                        myDiagram.commandHandler.expandSubGraph();
+                        myDiagram.zoomToFit();
+                    },
+                    allowDrop: true,  // must be true to accept drops from the Palette
+                    // what to do when a drag-drop occurs in the Diagram's background
+                    mouseDrop: function (e) { finishDrop(e, null); },
+                    //"LinkDrawn": showLinkLabel,  // this DiagramEvent listener is defined below
+                    //"LinkRelinked": showLinkLabel,
+                    "animationManager.duration": 600, // slightly longer than default (600ms) animation
+                    "undoManager.isEnabled": true,  // enable undo & redo
+                    // allow Ctrl-G to call groupSelection()
+                    "commandHandler.archetypeGroupData": { text: "Group", isGroup: true, color: "blue", category: "OfNodes" },
+                    "linkingTool.isUnconnectedLinkValid": true,
+                    "relinkingTool.isUnconnectedLinkValid": true
+                });
+
+            //handler for step's double click
+            function showJobModal() {
+                $("#jobModal").modal('show');
+            }
+
+            // when the document is modified, add a "*" to the title and enable the "Save" button
+            myDiagram.addDiagramListener("Modified", function (e) {
+                var button = document.getElementById("SaveButton");
+                //if (button) button.disabled = !myDiagram.isModified;
+                var idx = document.title.indexOf("*");
+                if (myDiagram.isModified) {
+                    if (idx < 0) document.title += "*";
+                } else {
+                    if (idx >= 0) document.title = document.title.substr(0, idx);
+                }
+            });
+
+            myDiagram.grid.visible = true;
+            //myDiagram.grid =
+            //          $(go.Panel, "Grid",  // or "Grid"
+            //            { gridCellSize: new go.Size(25, 25) },
+            //            $(go.Shape, "LineH", { stroke: "blue" }),
+            //            $(go.Shape, "LineV", { stroke: "green" })
+            //          );           
+
+            myDiagram.initialContentAlignment = go.Spot.Center;
+            // helper definitions for node templates
+
+            function nodeStyle() {
+                return [
+                  // The Node.location comes from the "loc" property of the node data,
+                  // converted by the Point.parse static method.
+                  // If the Node.location is changed, it updates the "loc" property of the node data,
+                  // converting back using the Point.stringify static method.
+                  new go.Binding("location", "loc", go.Point.parse).makeTwoWay(go.Point.stringify),
+                  {
+                      resizable: true,
+                      locationSpot: go.Spot.Center,
+                      //doubleClick: function () { $('#myModal').modal('show'); },
+                      // the Node.location is at the center of each node
+                      resizeObjectName: 'shape',
+                      locationSpot: go.Spot.Center,
+                      //isShadowed: true,
+                      //shadowColor: "#888",
+                      // handle mouse enter/leave events to show/hide the ports
+                      mouseEnter: function (e, obj) { showPorts(obj.part, true); },
+                      mouseLeave: function (e, obj) { showPorts(obj.part, false); }
+                  }
+                ];
+            }
+
+            function shapeStyle() {
+                return [
+                  {
+                      //portId: "", // the whole Shape is the port
+                      cursor: "pointer",  
+                      // allow all kinds of links from and to this port
+                      //fromLinkable: true, fromLinkableSelfNode: true, fromLinkableDuplicates: true,
+                      //toLinkable: true, toLinkableSelfNode: true, toLinkableDuplicates: true
+                  }
+                ];
+            }
+
+
+            // For Custom Text Editor
+            var customText = document.getElementById("customTextEditor");
+            customText.onActivate = function () {
+                customText.style.visibility = "";
+                var startingValue = customText.textEditingTool.textBlock.text;
+
+                var children = customText.children
+                var l = children.length;
+                for (var i = 0; i < l; i++) {
+                    var child = children[i];
+                    // Make sure the radio button that equals the text is checked
+                    if (child instanceof HTMLTextAreaElement) {
+                        child.value = startingValue;
+                    }
+                }
+
+                // customText is a div and doesn't have a "value" field
+                // So we will make value into a function that will return
+                // the "value" of the checked radio button
+                customText.value = function () {
+                    var children = customText.children
+                    var l = children.length;
+                    for (var i = 0; i < l; i++) {
+                        var child = children[i];
+                        if (child instanceof HTMLTextAreaElement) {
+                            return child.value;
+                        }
+                    }
+                    return children[0].value;
+                }
+
+                // Do a few different things when a user presses a key
+                customText.addEventListener("keydown", function (e) {
+                    var keynum = e.which;
+                    var tool = customText.textEditingTool;
+                    if (tool === null) return;
+                    if (keynum == 13) { // Accept on Enter
+                        tool.acceptText(go.TextEditingTool.Enter);
+                        return;
+                    } else if (keynum == 9) { // Accept on Tab
+                        tool.acceptText(go.TextEditingTool.Tab);
+                        e.preventDefault();
+                        return false;
+                    } else if (keynum === 27) { // Cancel on Esc
+                        tool.doCancel();
+                        if (tool.diagram) tool.diagram.focus();
+                    }
+                }, false);
+
+                var loc = customText.textEditingTool.textBlock.getDocumentPoint(go.Spot.TopLeft);
+                var pos = myDiagram.transformDocToView(loc);
+                customText.style.left = pos.x + "px";
+                customText.style.top = pos.y + "px";
+            }
+
+
+            // Define a function for creating a "port" that is normally transparent.
+            // The "name" is used as the GraphObject.portId, the "spot" is used to control how links connect
+            // and where the port is positioned on the node, and the boolean "output" and "input" arguments
+            // control whether the user can draw links from or to the port.
+            function makePort(name, spot, output, input) {
+                // the port is basically just a small circle that has a white stroke when it is made visible
+                return GoJs(go.Shape, "Circle",
+                         {
+                             fill: "transparent",
+                             stroke: null,  // this is changed to "white" in the showPorts function
+                             desiredSize: new go.Size(8, 8),
+                             alignment: spot, alignmentFocus: spot,  // align the port on the main Shape
+                             portId: name,  // declare this object to be a "port"
+                             fromSpot: spot, toSpot: spot,  // declare where links may connect at this port
+                             cursor: "pointer",  // show a different cursor to indicate potential link point
+                             fromLinkable: true, fromLinkableSelfNode: true, fromLinkableDuplicates: true,
+                             toLinkable: true, toLinkableSelfNode: true, toLinkableDuplicates: true
+                         });
+            }
+
+            // define the Node templates for regular nodes
+
+            var lightText = 'whitesmoke';
+
+            myDiagram.nodeTemplateMap.add("",  // the default category
+              GoJs(go.Node, "Spot", nodeStyle(),
+                 GoJs(go.Shape, "Rectangle", shapeStyle(),
+                    {
+                        fill: "#00A9C9", stroke: null, minSize: new go.Size(120, 70)
+                    },
+                    new go.Binding("figure", "figure"),
+                    new go.Binding("minSize", "minSize")),
+                // the main object is a Panel that surrounds a TextBlock with a rectangular Shape
+                GoJs(go.Panel, "Table",
+
+                  GoJs(go.TextBlock,
+                    {
+                        row: 0,
+                        column: 0,
+                        font: "bold 11pt Helvetica, Arial, sans-serif",
+                        stroke: lightText,
+                        margin: 8,
+                        maxSize: new go.Size(160, NaN),
+                        wrap: go.TextBlock.WrapFit,
+                        editable: true
+                    },
+                    new go.Binding("text").makeTwoWay()),
+                     GoJs(go.TextBlock, "Description",
+                    {
+                        row: 1,
+                        column: 0, font: "8pt Helvetica, Arial, sans-serif", stroke: lightText,
+                        isMultiline: true,
+                        overflow: go.TextBlock.OverflowEllipsis,
+                        editable: true,
+                        maxSize: new go.Size(80, NaN),
+                        maxLines: 2,
+                        textEditor: customText
+                    },
+                    new go.Binding('text', "description").makeTwoWay())
+                ),
+                //// four named ports, one on each side:
+                //makePort("T", go.Spot.Top, false, true),
+                //makePort("L", go.Spot.Left, true, true),
+                //makePort("R", go.Spot.Right, true, true),
+                //makePort("B", go.Spot.Bottom, true, false),
+                    new go.Binding('width').makeTwoWay(),
+                    new go.Binding('height').makeTwoWay()
+              ));
+
+            myDiagram.nodeTemplateMap.add("Step",  // the default category
+              GoJs(go.Node, "Spot", nodeStyle(),
+                    {
+                        doubleClick: stepClicked
+                    },
+                 GoJs(go.Shape, "SquareArrow", shapeStyle(),
+                    {
+                        fill: "#FFFFFF", stroke: "#00A9C9", minSize: new go.Size(160, 70), cursor: "move", strokeWidth: 4
+                    },
+                    new go.Binding("figure", "figure"),
+                    new go.Binding("minSize", "minSize")),
+                // the main object is a Panel that surrounds a TextBlock with a rectangular Shape
+                GoJs(go.Panel, "Table",
+
+                  GoJs(go.TextBlock,
+                    {
+                        row: 0,
+                        column: 0,
+                        font: "bold 11pt Helvetica, Arial, sans-serif",
+                        stroke: "#000000",
+                        margin: 8,
+                        maxSize: new go.Size(140, NaN),
+                        wrap: go.TextBlock.WrapFit,
+                        editable: false,
+                        cursor: "move"
+                    },
+                    new go.Binding("text").makeTwoWay()),
+                     GoJs(go.TextBlock, "Description",
+                    {
+                        row: 1,
+                        column: 0, font: "8pt Helvetica, Arial, sans-serif", stroke: "#000000",
+                        isMultiline: true,
+                        overflow: go.TextBlock.OverflowEllipsis,
+                        editable: true,
+                        maxSize: new go.Size(80, NaN),
+                        maxLines: 2,
+                        textEditor: customText,
+                        cursor: "text"
+                    },
+                    new go.Binding('text', "description").makeTwoWay())
+                ),
+                //// four named ports, one on each side:
+                makePort("T", go.Spot.Top, false, true),
+                makePort("L", go.Spot.Left, true, true),
+                makePort("R", go.Spot.Right, true, true),
+                makePort("B", go.Spot.Bottom, true, false),
+                    new go.Binding('width').makeTwoWay(),
+                    new go.Binding('height').makeTwoWay()
+              ));
+
+            //Pratap Edit start
+            /*template defination start*/
+
+            function CreateCanvas(divID) {
+
+                return GoJs(go.Diagram, divID,  // must name or refer to the DIV HTML element
+            {
+                //doubleClick: showJobModal,
+                initialContentAlignment: go.Spot.Center,
+                resizingTool: new LaneResizingTool(),
+                layout: GoJs(GroupLayout),
+                mouseDragOver: function (e) {
+                    if (executeDragOver) {
+                        executeDragOver = false;
+                        var nodeCount = 0;
+                        var it = myDiagram.toolManager.draggingTool.draggingParts.iterator;
+                        while (it.next()) {
+                            if (nodeCount > 0) {
+                                var node = it.value;
+                                node.containingGroup.collapseSubGraph();
+                            }
+                            nodeCount++;
+                        }
+                    }
+                    //gggg.opacity = 0.1;
+                    //gggg.isSubGraphExpanded = false;
+                    //resizeGroup(gggg);
+                },
+                ExternalObjectsDropped: function (e) {
+                    e.subject.each(function (node) {
+                        node.opacity = 1;
+                    });
+                    myDiagram.commandHandler.expandSubGraph();
+                    myDiagram.zoomToFit();
+                },
+                allowDrop: true,  // must be true to accept drops from the Palette
+                // what to do when a drag-drop occurs in the Diagram's background
+                mouseDrop: function (e) { finishDrop(e, null); },
+                //"LinkDrawn": showLinkLabel,  // this DiagramEvent listener is defined below
+                //"LinkRelinked": showLinkLabel,
+                "animationManager.duration": 600, // slightly longer than default (600ms) animation
+                "undoManager.isEnabled": true,  // enable undo & redo
+                // allow Ctrl-G to call groupSelection()
+                "commandHandler.archetypeGroupData": { text: "Group", isGroup: true, color: "blue", category: "Table" },
+                "linkingTool.isUnconnectedLinkValid": false,
+                "relinkingTool.isUnconnectedLinkValid": false,
+                "linkingTool.linkValidation": function (from, fromPort, to, toPort, link) {
+                    if (from.data.columnname === "*" || to.data.columnname === "*") return false;
+                    return from.containingGroup !== to.containingGroup;
+                }
+            });
+            }
+            function finishDropForTable(e, grp) {
+                var ok = (grp !== null
+                          ? (e.diagram.currentTool.doCancel())
+                          : e.diagram.currentTool.doCancel());
+                if (!ok) e.diagram.currentTool.doCancel();
+            }
+
+            function groupTemplateForTable() {
+                return GoJs(go.Group, "Auto",
+                    {
+                        background: "transparent",
+                        ungroupable: true,
+                        // highlight when dragging into the Group
+                        mouseDragEnter: function (e, grp, prev) { highlightGroup(e, grp, true); },
+                        mouseDragLeave: function (e, grp, next) { highlightGroup(e, grp, false); },
+                        computesBoundsAfterDrag: true,
+                        // when the selection is dropped into a Group, add the selected Parts into that Group;
+                        // if it fails, cancel the tool, rolling back any changes
+                        mouseDrop: finishDropForTable,
+                      //  allowDrop: false,
+                        handlesDragDropForMembers: true,  // don't need to define handlers on member Nodes and Links
+                        // Groups containing Nodes lay out their members vertically
+                        layout:
+                          GoJs(go.GridLayout,
+                            {
+                                wrappingColumn: 1, alignment: go.GridLayout.Position,
+                                cellSize: new go.Size(0, 0), spacing: new go.Size(0,0 )
+                            })
+                    },
+                    new go.Binding("background", "isHighlighted", function (h) { return h ? "rgba(255,0,0,0.2)" : "transparent"; }).ofObject(),
+                    GoJs(go.Shape, "Rectangle",
+                      { fill: null, stroke: "#ccc" }),
+                    GoJs(go.Panel, "Vertical",  // title above Placeholder
+                      GoJs(go.Panel, "Horizontal",  // button next to TextBlock
+                        { stretch: go.GraphObject.Horizontal, background: "#ccc" },
+                        GoJs("SubGraphExpanderButton",
+                          { alignment: go.Spot.Right, margin: 5 }),
+                        GoJs(go.TextBlock,
+                          {
+                              alignment: go.Spot.Left,
+                              editable: true,
+                              margin: 5,
+                              font: "bold 16px sans-serif",
+                              opacity: 0.75,
+                              stroke: "#404040"
+                          },
+                          new go.Binding("text", "text").makeTwoWay())
+                      ),  // end Horizontal Panel
+                      GoJs(go.Placeholder,
+                        { padding: 6, alignment: go.Spot.TopLeft })
+                    )  // end Vertical Panel
+                  );
+            }
+
+           
+
+            // replace the default Link template in the linkTemplateMap
+            function updateRelation(e, obj, newSource) {
+                e.diagram.startTransaction("changed relation");
+                // get the context menu that holds the button that was clicked
+                var contextmenu = obj.part;
+                // get the node data to which the Node is data bound
+                var nodedata = contextmenu.data;
+                var model = e.diagram.model;
+                var fromNode = model.findNodeDataForKey(nodedata.from);
+                var toNode = model.findNodeDataForKey(nodedata.to);
+                var fromNodeTable = model.findNodeDataForKey(fromNode.group);
+                var toNodeTable = model.findNodeDataForKey(toNode.group);
+                // modify the node data
+                // this evaluates data Bindings and records changes in the UndoManager
+                model.setDataProperty(nodedata, "relationType", newSource);
+                model.setDataProperty(nodedata, "toolTipText",
+                    (newSource.toUpperCase()+": "+fromNodeTable.text+"."+fromNode.columnname+" = "+toNodeTable.text+"."+toNode.columnname));
+                e.diagram.commitTransaction("changed relation");
+            }
+
+
+            function linkTemplateForRelationsMapping() {
+                return GoJs(go.Link,  // the whole link panel
+
+                  //   { contextMenu: GoJs(go.Adornment) },
+                {
+                    routing: go.Link.AvoidsNodes,
+                    curve: go.Link.JumpOver,
+                    corner: 5, toShortLength: 4,
+                    relinkableFrom: true,
+                    relinkableTo: true,
+                    reshapable: true,
+                    resegmentable: true,
+                    // mouse-overs subtly highlight links:
+                    mouseEnter: function (e, link) { link.findObject("HIGHLIGHT").stroke = "rgba(30,144,255,0.2)"; },
+                    mouseLeave: function (e, link) { link.findObject("HIGHLIGHT").stroke = "transparent"; }
+                },
+                new go.Binding("points").makeTwoWay(),
+                GoJs(go.Shape,  // the highlight shape, normally transparent
+                  { isPanelMain: true, strokeWidth: 10, stroke: "transparent", name: "HIGHLIGHT" }),
+                GoJs(go.Shape,  // the link path shape
+                  { isPanelMain: true, stroke: "gray", strokeWidth: 6 }),
+                GoJs(go.Panel, "Auto",  // the link label, normally not visible
+                  { visible: true, name: "LABEL", segmentIndex: 2, segmentFraction: 0.5 },
+                  new go.Binding("visible", "visible").makeTwoWay(),
+                  GoJs(go.Shape, "RoundedRectangle",  // the label shape
+                    { fill: "#f4f2f2", stroke: null }),
+                    {
+                        contextMenu:     // define a context menu for each node
+                          GoJs(go.Adornment, "Vertical",  // that has one button
+                            GoJs("ContextMenuButton",
+                              GoJs(go.TextBlock, "innerJoin"),
+                              {
+                                  click: function (e, obj) {
+                                      updateRelation(e, obj, "innerJoin");
+                                  }
+                              }),
+                               GoJs("ContextMenuButton",
+                              GoJs(go.TextBlock, "outerJoin"),
+                              {
+                                  click: function (e, obj) {
+                                      updateRelation(e, obj, "outerJoin");
+                                  }
+                              })
+                            // more ContextMenuButtons would go here
+                          )  
+                    },
+                     GoJs(go.Picture,
+                              {
+                                  click: clickHandler,
+                                  name: 'Picture',
+                                  desiredSize: new go.Size(20, 20),
+                                  source: "Areas/Process/Images/innerJoin.gif",
+
+                                  toolTip:  // define a tooltip for each node that displays the color as text
+                                    GoJs(go.Adornment, "Auto",
+                                      GoJs(go.Shape, { fill: "#FFFFCC" }),
+                                      GoJs(go.TextBlock, "join", { margin: 4 },
+                                      new go.Binding("text","toolTipText").makeTwoWay())
+                                    ),  // end of Adornment
+
+                              },
+                               new go.Binding("source", "relationType",getSourceForRelation).makeTwoWay())
+                )
+              );
+            }
+
+            // for output model only
+            function linkTemplateForMapping() {
+                return GoJs(go.Link,  // the whole link panel
+                {
+                    routing: go.Link.AvoidsNodes,
+                    curve: go.Link.JumpOver,
+                    corner: 5, toShortLength: 4,
+                    relinkableFrom: true,
+                    relinkableTo: true,
+                    reshapable: true,
+                    resegmentable: true,
+                    // mouse-overs subtly highlight links:
+                    mouseEnter: function (e, link) { link.findObject("HIGHLIGHT").stroke = "rgba(30,144,255,0.2)"; },
+                    mouseLeave: function (e, link) { link.findObject("HIGHLIGHT").stroke = "transparent"; }
+                },
+                new go.Binding("points").makeTwoWay(),
+                GoJs(go.Shape,  // the highlight shape, normally transparent
+                  { isPanelMain: true, strokeWidth: 10, stroke: "transparent", name: "HIGHLIGHT" }),
+                GoJs(go.Shape,  // the link path shape
+                  { isPanelMain: true, stroke: "gray", strokeWidth: 6 })
+              );
+            }
+
+
+            function getSourceForRelation(relationType) {
+                if (relationType != "") { return "Areas/Process/Images/" + relationType + ".gif"; } else { return "Areas/Process/Images/innerJoin.gif"; }
+                
+            }
+            /*template defination end*/
+            myDiagramModalInputTable = CreateCanvas("myDiagramForModalInputTableDiv");
+            myDiagramModalOutputTable = CreateCanvas("myDiagramForModalOutputTableDiv");
+           
+
+            function createTableInGroupFormat(table) {
+                return {
+                    category: table.category,
+                    description: table.description,
+                    isGroup: true,
+                    key: table.key,
+                    text: table.text,
+                    columns: table.columns
+                };
+            }
+
+            function getTablesInGroupFormat(TableInJson) {
+                var tables = [];
+                var numberOfTables = TableInJson.length;
+
+                for (i = 0; i < numberOfTables; i++) {
+                    tables.push(createTableInGroupFormat(TableInJson[i]));
+                    var defaultColumn = {
+                        category: "Column",
+                        columnname: "*",                             //%%edit      text: TableInJson[i].columns[j].name,
+                        columnid: "00",     //%%edit             nothing remove this 
+                        columntype: "", 
+                        group: TableInJson[i].key
+                    };
+                    tables.push(defaultColumn);
+                    Array.prototype.push.apply(tables, getColumnsFromTable(TableInJson[i]));
+                }
+
+                return tables;
+            }
+
+            function getColumnsFromTable(table) {
+                var columns = [];
+                for (j = 0; j < table.columns.length; j++) {
+                    // var column =
+                    columns.push({
+                        category: "Column",
+                        columnname: table.columns[j].name,                              //%%edit      text: TableInJson[i].columns[j].name,
+                        columnid: ("T" + i + "C" + j + "I" + table.columns[j].id),     //%%edit             nothing remove this 
+                        columntype: "varchar(10)",                                                 //%%edit             nothing remove this 
+                        group: table.key
+                    });
+                }
+
+                return columns;
+            }
+          
+
+            //handler for step's double click
+            function stepClicked(e, obj) {
+                currentStep = obj.part;
+
+                function nodeTemplateForColumn() {
+
+                    return GoJs(go.Node, "Auto", nodeStyleForColumn(),
+                          GoJs(go.Shape, "Rectangle", shapeStyle(),
+                              { fill: "transparent", stroke: null, },
+                             new go.Binding("fill", "color")),
+                         // the main object is a Panel that surrounds a TextBlock with a rectangular Shape
+                         GoJs(go.Panel, "Table",
+                                     { defaultAlignment: go.Spot.TopCenter, name: "PANEL" },
+                                      GoJs(go.RowColumnDefinition, { column: 0, width: 8 }),
+                                      GoJs(go.RowColumnDefinition, { column: 1 }),
+                                      GoJs(go.RowColumnDefinition, { column: 2, width: 5 }),
+                                     GoJs(go.Panel, "Vertical",
+                                  { row: 0, column: 1, margin: 5, defaultAlignment: go.Spot.TopCenter },
+                                  GoJs("CheckBox", "checked",
+                                            { row: 0, column: 1, margin: 1 }, { "_buttonFillOver": "transparent", "_buttonStrokeOver": "black" },
+
+                                      GoJs(go.TextBlock,
+                                      {
+                                          row: 0, column: 1,
+                                          margin: 5,
+                                          editable: true,
+                                          wrap: go.TextBlock.WrapFit,
+                                          font: "bold 13px sans-serif",
+                                          opacity: 0.75,
+                                          stroke: "#404040"
+                                      },
+                                      new go.Binding("text", "columnname").makeTwoWay()),
+
+                                      GoJs(go.TextBlock,
+                                      {
+                                          row: 0, column: 1,
+                                          margin: 5,
+                                          editable: true,
+                                          wrap: go.TextBlock.WrapFit,
+                                          font: "bold 10px sans-serif",
+                                          opacity: 0.75,
+                                          stroke: "#404040"
+                                      },
+                                      new go.Binding("text", "columntype").makeTwoWay()),
+
+                                      GoJs(go.TextBlock,
+                                      {
+                                          row: 0, column: 1,
+                                          margin: 5,
+                                          editable: true,
+                                          wrap: go.TextBlock.WrapFit,
+                                          font: "bold 13px sans-serif",
+                                          opacity: 0.75,
+                                          stroke: "#404040",
+                                          visible: false
+                                      },
+                                      new go.Binding("text", "columnid").makeTwoWay()),
+
+                                      { "_doClick": function (e, obj) { updatedColumnInTable(e,obj); } },
+                                       new go.Binding("checked", "checked").makeTwoWay()
+                                  ))),
+                         //// four named ports, one on each side:
+
+                         makePortForColumn("L", go.Spot.Left, true, true),
+                         makePortForColumn("R", go.Spot.Right, true, true)
+                       );
+                }
+
+                // Define a function for creating a "port" that is normally transparent.
+                // The "name" is used as the GraphObject.portId, the "spot" is used to control how links connect
+                // and where the port is positioned on the node, and the boolean "output" and "input" arguments
+                // control whether the user can draw links from or to the port.
+                function makePortForColumn(name, spot, output, input) {
+                    // the port is basically just a small circle that has a white stroke when it is made visible
+                    var shape;
+                    if (name == "T") {
+                        shape = "TriangleUp";
+                        width = 20;
+                        height = 10;
+                    } else if (name == "R") {
+                        shape = "TriangleRight";
+                        width = 10;
+                        height = 15;
+                    } else if (name == "L") {
+                        shape = "TriangleLeft";
+                        width = 10;
+                        height = 15;
+                    } else {
+                        shape = "TriangleDown";
+                        width = 20;
+                        height = 10;
+                    }
+
+                    return GoJs(go.Shape, shape,
+                             {
+
+                                 fill: "transparent",
+                                 stroke: null,  // this is changed to "white" in the showPorts function
+                                 desiredSize: new go.Size(width, height),
+                                 alignment: spot, alignmentFocus: spot,
+                                 alignmentFocus: spot.opposite(),// align the port on the main Shape
+                                 portId: name,  // declare this object to be a "port"
+                                 fromSpot: spot, toSpot: spot,  // declare where links may connect at this port
+                                 fromLinkable: output, toLinkable: input,  // declare whether the user may draw links to/from here
+                                 cursor: "pointer",// show a different cursor to indicate potential link point
+
+                             })
+
+
+                }
+
+                function updatedColumnInTable(e, obj)
+                {
+                    console.log("entered");
+                    
+                    var key;
+                    var outputModel = myDiagramModalOutputTable.model;
+                    if (e.diagram.model == outputModel) return;
+
+                    var inputModel = myDiagramModalInputTable.model;
+                    var selectedColumn = obj.part.data;
+                    if (selectedColumn.columnname == "*") {
+                        myDiagramModalInputTable.nodes.each(function (node) {
+                            if (node.data.category == "Column" && node.data.group == selectedColumn.group && node.data.columnname != "*") {
+                                inputModel.startTransaction("update checkbox");
+                                if (selectedColumn.checked) inputModel.setDataProperty(node.data, "checked", true);
+                                else inputModel.setDataProperty(node.data, "checked", false);
+                                inputModel.commitTransaction("update checkbox");
+                            }
+                        });
+                    } else {
+                        var updateAllCheck = false;
+                        myDiagramModalInputTable.nodes.each(function (node) {
+                            if ( node.data.group == selectedColumn.group && (node.data.checked == false ||typeof node.data.checked==="undefined")) {
+                                updateAllCheck = true;
+                            }
+                        myDiagramModalInputTable.nodes.each(function (node) {
+                                    if (node.data.category == "Column" && node.data.group == selectedColumn.group && node.data.columnname == "*") {
+                                        inputModel.startTransaction("update checkbox");
+                                         inputModel.setDataProperty(node.data, "checked", !updateAllCheck);
+                                        inputModel.commitTransaction("update checkbox");
+                                    }
+                                });
+                        });
+
+                    }
+                    
+                   
+
+                    myDiagramModalOutputTable.startTransaction("make new node");
+                    myDiagramModalOutputTable.nodes.each(function (node) {
+                        if (node.data.text == "Selected Column")
+                        { key = node.data.key; }
+                    });
+                    console.log(key);
+                    //adding column
+                    myDiagramModalInputTable.nodes.each(function (n) {
+
+                        if (n.data.category == "Column" && n.data.columnname!="*") {
+                            if (n.data.checked == true) {
+
+                                var tableName = myDiagramModalInputTable.model.findNodeDataForKey(n.data.group).text;
+                              
+                                var newNodeColumn = {};
+                                newNodeColumn.group = key;
+                                newNodeColumn.category = "Column";
+                                newNodeColumn.columnname = tableName +"."+n.data.columnname;
+                                newNodeColumn.columnid = n.data.columnid;
+                                newNodeColumn.columntype = n.data.columntype;
+                                var add = true;
+                                myDiagramModalOutputTable.nodes.each(function (node) {
+                                    if (node.data.columnid == n.data.columnid && outputModel.findNodeDataForKey(node.data.group).text == "Selected Column" ) { // depens on columnid if everycolumn in diagram has unique id  then modify here
+                                        add = false;
+                                    }
+                                });
+                                if (add) { outputModel.addNodeData(newNodeColumn); console.log("adding"); }
+                                
+                            } else {
+                                var newNodeColumn = {};
+                                var remove = false;
+                                myDiagramModalOutputTable.nodes.each(function (node) {
+                                    if ( node.data.columnid == n.data.columnid && outputModel.findNodeDataForKey(node.data.group).text=="Selected Column") {
+                                        newNodeColumn = node.data;
+                                        remove = true;
+                                    }
+                                });
+                                
+                                if (remove) { console.log("deleting" + outputModel.removeNodeData(newNodeColumn)); }
+                            }
+                        }
+                    });
+                    myDiagramModalOutputTable.model = outputModel;
+                    myDiagramModalOutputTable.commitTransaction("make new node");
+                    console.log("done edited");
+                }
+
+                function nodeStyleForColumn() {
+                    return [
+                      // The Node.location comes from the "loc" property of the node data,
+                      // converted by the Point.parse static method.
+                      // If the Node.location is changed, it updates the "loc" property of the node data,
+                      // converting back using the Point.stringify static method.
+                      new go.Binding("location", "loc", go.Point.parse).makeTwoWay(go.Point.stringify),
+                      {
+                          resizable: false,
+                          selectable: false,
+                          locationSpot: go.Spot.Center,
+                          //doubleClick: function () { $('#myModal').modal('show'); },
+                          // the Node.location is at the center of each node
+                          resizeObjectName: 'shape',
+                          locationSpot: go.Spot.Center,
+                          //isShadowed: true,
+                          //shadowColor: "#888",
+                          // handle mouse enter/leave events to show/hide the ports
+                          mouseEnter: function (e, obj) { showPorts(obj.part, true); },
+                          mouseLeave: function (e, obj) { showPorts(obj.part, false); }
+                      }
+                    ];
+                }
+
+
+                function addTemplateForDiagram(MyDiagram) {
+                    MyDiagram.groupTemplateMap.add("Table", groupTemplateForTable());  // end Group and call to add to template Map
+                    MyDiagram.nodeTemplateMap.add("Column", nodeTemplateForColumn());   //for Column
+                   }
+
+               
+                    
+                if (typeof currentStep.data.modalInputTablesMapping !== "undefined") {
+                    myDiagramModalInputTable.model = go.Model.fromJson(JSON.parse(JSON.stringify(currentStep.data.modalInputTablesMapping)));
+                    myDiagramModalOutputTable.model = go.Model.fromJson(JSON.parse(JSON.stringify(currentStep.data.modalOutputTablesMapping)));
+                    console.log("i am in adding model from previous data");
+                }
+                else {
+
+                    /*input table start*/
+                    var tablesToCurrentStep = [];
+                    currentStep.findNodesInto().each(function (n) {
+                        if (n.data.category == "Table") {
+                            tablesToCurrentStep.push(n.data);
+                        }
+                    });
+                    var TableInJson = [];
+                    var nodeDataArray = [];
+                    nodeDataArray = getTablesInGroupFormat(JSON.parse(JSON.stringify(tablesToCurrentStep)));
+
+                    var linkDataArray = [];
+
+                    addTemplateForDiagram(myDiagramModalInputTable);
+                    myDiagramModalInputTable.linkTemplate = linkTemplateForRelationsMapping();
+
+                    myDiagramModalInputTable.model = new go.GraphLinksModel(nodeDataArray, linkDataArray);
+
+                    /*input table end*/
+
+                    /*Output table start*/
+
+                   
+                   
+
+                    /*for loading output table from main canvas to  model output canvas #ltmctooc start*/
+                    var tablesFromCurrentStep=[];
+                    currentStep.findNodesOutOf().each(function (n) {
+                        if (n.data.category == "Table" ) {
+                            tablesFromCurrentStep.push(n.data);
+                        }
+                    });
+                    
+                    
+                    TableInJson = [];
+                    nodeDataArray = [];
+                    TableInJson = JSON.parse(JSON.stringify(tablesFromCurrentStep));
+                    if (TableInJson.length != 0) {
+                        nodeDataArray.push(createTableInGroupFormat(TableInJson[0]));
+                        Array.prototype.push.apply(nodeDataArray, getColumnsFromTable(TableInJson[0]));
+                    }
+                   
+                   
+                    /* #ltmctooc end */
+                    nodeDataArray.push({
+                        category: "Table",
+                        text: "Selected Column",
+                        isGroup: true
+                    });
+
+                    linkDataArray = [];
+                    addTemplateForDiagram(myDiagramModalOutputTable);
+                    myDiagramModalOutputTable.linkTemplate = linkTemplateForMapping();
+                    myDiagramModalOutputTable.model = new go.GraphLinksModel(nodeDataArray, linkDataArray);
+
+                }
+
+                /*for contextMenu start
+                myDiagramModalInputTable.contextMenu = GoJs(go.Adornment);
+
+                // Override the ContextMenuTool.showContextMenu and hideContextMenu methods
+                // in order to modify the HTML appropriately.
+                var cxTool = myDiagramModalInputTable.toolManager.contextMenuTool;
+
+                // This is the actual HTML context menu:
+                var cxElement = document.getElementById("contextMenu");
+
+                // We don't want the div acting as a context menu to have a (browser) context menu!
+                cxElement.addEventListener("contextmenu", function (e) {
+                    this.focus();
+                    e.preventDefault();
+                    return false;
+                }, false);
+
+                cxElement.addEventListener("blur", function (e) {
+                    cxTool.stopTool();
+
+                    // maybe start another context menu
+                    if (cxTool.canStart()) {
+                        myDiagramModalInputTable.currentTool = cxTool;
+                        cxTool.doMouseUp();
+                    }
+
+                }, false);
+                cxElement.tabIndex = "1";
+
+
+                
+
+                // This is the override of ContextMenuTool.showContextMenu:
+                // This does not not need to call the base method.
+                cxTool.showContextMenu = function(contextmenu, obj) {
+                    var diagram = this.diagram;
+                    if (diagram === null) return;
+
+                    // Hide any other existing context menu
+                    if (contextmenu !== this.currentContextMenu) {
+                        this.hideContextMenu();
+                    }
+
+                    // Show only the relevant buttons given the current state.
+                    var cmd = diagram.commandHandler;
+                    var objExists = obj !== null;
+                    document.getElementById("cut").style.display = objExists && cmd.canCutSelection() ? "block" : "none";
+                    document.getElementById("copy").style.display = objExists && cmd.canCopySelection() ? "block" : "none";
+                    document.getElementById("paste").style.display = cmd.canPasteSelection() ? "block" : "none";
+                    document.getElementById("delete").style.display = objExists && cmd.canDeleteSelection() ? "block" : "none";
+                    
+
+                    // Now show the whole context menu element
+                    cxElement.style.display = "block";
+                    // we don't bother overriding positionContextMenu, we just do it here:
+                    var mousePt = diagram.lastInput.viewPoint;
+                    cxElement.style.left = mousePt.x + "px";
+                    cxElement.style.top = mousePt.y + "px";
+
+                    // Remember that there is now a context menu showing
+                    this.currentContextMenu = contextmenu;
+                }
+
+                // This is the corresponding override of ContextMenuTool.hideContextMenu:
+                // This does not not need to call the base method.
+                cxTool.hideContextMenu = function() {
+                    if (this.currentContextMenu === null) return;
+                    cxElement.style.display = "none";
+                    this.currentContextMenu = null;
+                }
+            
+
+           
+
+                for contextMenu ends*/
+               
+
+                // for option menu
+                // 
+                existingTable = JSON.parse(JSON.stringify(myPalette3.model.nodeDataArray));    //  today
+                numberOfTables = existingTable.length;
+                var select = document.getElementById("existingTable");
+                select.options.length = 1;
+                for (i = 0; i < numberOfTables; i++) {
+                    var option = document.createElement("option");
+                    option.text = existingTable[i].text;
+                    option.value = existingTable[i].text;
+                    select.appendChild(option);
+                }
+              
+                /*output table end*/
+
+                
+                /*modal canvas end*/
+                // Pratap Edit end
+
+                $("#stepModal").modal('show');
+            }
+
+            function ViewModel() {
+                this.fieldItemsIP = ko.observableArray(fieldsIP);
+                this.fieldItemsOP = ko.observableArray(fieldsOP);
+
+
+                this.FileFieldChange = function (data, event) {
+                    var value = event.currentTarget.value;
+
+                    var previous = $(event.currentTarget).data('val');
+                    $(event.currentTarget).data('val', value);
+
+                    var currentMatchElements = $('.file-col').filter(function (index) {
+                        return $(this).val() == value;
+                    });
+                    if (value != "") {
+                        if (currentMatchElements.length > 1) {
+                            currentMatchElements.each(function (index) {
+                                $(this).closest('td').addClass("applyError");
+                            });
+                        }
+                        else {
+                            $(event.currentTarget).closest('td').removeClass("applyError");
+                        }
+                    }
+                    else {
+                        $(event.currentTarget).closest('td').removeClass("applyError");
+                    }
+
+                    var previousMatchElements = $('.file-col').filter(function (index) {
+                        return $(this).val() == previous;
+                    });
+
+                    if (previousMatchElements.length == 1) {
+                        previousMatchElements.each(function (index) {
+                            $(this).closest('td').removeClass("applyError");
+                        });
+                    }
+                }
+                this.FileFieldFocus = function (data, event) {
+                    if ($(event.currentTarget).val() != "") {
+                        $(event.currentTarget).data('val', $(event.currentTarget).val());
+                    }
+                }
+
+
+                this.TableFieldChange = function (data, event) {
+                    var value = event.currentTarget.value;
+
+                    var previous = $(event.currentTarget).data('val');
+                    $(event.currentTarget).data('val', value);
+
+                    var currentMatchElements = $('.table-col').filter(function (index) {
+                        return $(this).val() == value;
+                    });
+
+                    if (value != "") {
+                        if (currentMatchElements.length > 1) {
+                            currentMatchElements.each(function (index) {
+                                $(this).closest('td').addClass("applyError");
+                            });
+                        }
+                        else {
+                            $(event.currentTarget).closest('td').removeClass("applyError");
+                        }
+                    }
+                    else {
+                        $(event.currentTarget).closest('td').removeClass("applyError");
+                    }
+
+                    var previousMatchElements = $('.table-col').filter(function (index) {
+                        return $(this).val() == previous;
+                    });
+
+                    if (previousMatchElements.length == 1) {
+                        previousMatchElements.each(function (index) {
+                            $(this).closest('td').removeClass("applyError");
+                        });
+                    }
+                }
+                this.TableFieldFocus = function (data, event) {
+                    if ($(event.currentTarget).val() != "") {
+                        $(event.currentTarget).data('val', $(event.currentTarget).val());
+                    }
+                }
+            }
+
+            function DeleteAllRows() {
+                $("#tab_logic").find("tbody").html('');
+            }
+            function myFunction() {
+                alert('sdfd');
+            }
+
+            function AddRow(selectedFieldIP, selectedFieldOP ) {
+                var fileId = 'selFile' + mapRowCount;
+                var tableId = 'selTable' + mapRowCount;
+                selectedValueIP = ko.observable(selectedFieldIP);
+                selectedValueOP = ko.observable(selectedFieldOP);
+
+                $('#tab_logic').append('<tr id="addr' + mapRowCount + '"></tr>');
+                $('#addr' + mapRowCount).html("<td>" + (mapRowCount + 1) + "</td><td><select class='form-control file-col' id='" + fileId + "' data-bind=\"options: fieldItemsIP,optionsText: 'name',optionsValue: 'id', value: selectedValueIP, optionsCaption: 'Select...', event:{ change: $root.FileFieldChange, focus: $root.FileFieldFocus} \" ></select></td><td><select class='form-control table-col' id='" + tableId + "' data-bind=\"options: fieldItemsOP,optionsText: 'name',optionsValue: 'id', value: selectedValueOP, optionsCaption: 'Select...', event:{ change: $root.TableFieldChange, focus: $root.TableFieldFocus} \" ></select></td>");
+                //$('#addr' + mapRowCount).html("<td>" + (mapRowCount + 1) + "</td><td><select class='form-control' id='" + tableId + "' data-bind=\"options: fieldItemsOP,optionsText: 'name',optionsValue: 'id', value: selectedValueOP, optionsCaption: 'None' \"></select></td>");
+                mapRowCount++;
+
+                ko.cleanNode($('#' + fileId)[0]);
+                ko.cleanNode($('#' + tableId)[0]);
+                ko.applyBindings(new ViewModel(), $('#' + fileId)[0]);
+                ko.applyBindings(new ViewModel(), $('#' + tableId)[0]);
+                selectedValueIP = null;
+                selectedValueOP = null;
+            }
+
+
+            $(document).ready(function () {
+               
+                $("#existingTable").on('change', function () {
+
+                    var tableText = this.value;
+                    var columnsToRemoveByKey = [];
+                    var linksToRemove = [];
+                    var tableToRemoveByKey;
+                    var count = 0;
+                    myDiagramModalOutputTable.nodes.each(function (node) {
+                        if (node.data.category == "Table") {
+                            if ( (node.data.text != "Selected Column") && (node.data.text != tableText) ) {
+                                tableToRemoveByKey = node.data.key;
+                            }
+                            count++;
+                        }
+                        
+                    });
+
+                    if ((tableToRemoveByKey == "undefined" || ((typeof tableToRemoveByKey) === "undefined")) ) return;          // if selected table is already exist
+
+                    myDiagramModalOutputTable.startTransaction("change table");
+                    var model = myDiagramModalOutputTable.model;
+                        myDiagramModalOutputTable.nodes.each(function (node) {          //getting columns to remove
+                            if (node.data.group == tableToRemoveByKey && node.data.category == "Column")
+                                columnsToRemoveByKey.push(node.data.key);
+                        });
+                        myDiagramModalOutputTable.links.each(function (link) {           //getting links to remove
+                            linksToRemove.push(link.data);
+                            
+                        });
+
+                        for (i = 0; i < linksToRemove.length; i++) {                    // removing links
+                            model.removeLinkData(linksToRemove[i]);
+                        }
+
+                        for (i = 0; i < columnsToRemoveByKey.length; i++) {                  // removing columns
+                            model.removeNodeData(model.findNodeDataForKey(columnsToRemoveByKey[i]));
+                        }
+                        model.removeNodeData(model.findNodeDataForKey(tableToRemoveByKey));     // removing table
+                   
+
+                    var numberOfTables = existingTable.length;
+                    for (i = 0; i < numberOfTables; i++) {
+                        if (existingTable[i].text == tableText) {
+                            model.addNodeData(createTableInGroupFormat(existingTable[i]));  // adding table
+                            model.addNodeDataCollection(getColumnsFromTable(existingTable[i]));
+                        }
+                    }
+
+                    myDiagramModalOutputTable.model = model;
+                    myDiagramModalOutputTable.commitTransaction("change table");
+                    //console.log("done edited");
+                });
+                // pratap  here
+
+                $("#save_mapping").click(function () {
+
+                    currentStep.data["modalOutputTablesMapping"] = JSON.parse(JSON.stringify(myDiagramModalOutputTable.model));
+                    currentStep.data["modalInputTablesMapping"] = JSON.parse(JSON.stringify(myDiagramModalInputTable.model));
+                    var modalOutputTable = {};
+                    var currentStepOutputTable;
+                    currentStep.findNodesOutOf().each(function (n) {
+                        if (n.data.category == "Table") {
+                            currentStepOutputTable = n.data;
+                        }
+                    });
+                    
+                   // console.log(currentStep.data.key);
+                  //  console.log(outputTable);
+
+                    myDiagramModalOutputTable.nodes.each(function (node) {
+                        if (node.data.category == "Table" && (node.data.text != "Selected Column") ) {
+                            modalOutputTable = node.data;
+                        }
+                    });
+                    var tableToSave = createTableInGroupFormat(JSON.parse(JSON.stringify(modalOutputTable)));
+                    tableToSave.isGroup = false;
+                    tableToSave.columns = [];
+                    myDiagramModalOutputTable.nodes.each(function (node) {
+                        if (node.data.category == "Column" && (node.data.group == tableToSave.key)) {
+                            tableToSave.columns.push({
+                                name: node.data.columnname,
+                                id: node.data.columnid,
+                                seq: 200
+                            });
+                        }
+                    });
+                   
+                   
+                    myDiagram.startTransaction("save table");
+                    var model = myDiagram.model;
+                    if (currentStepOutputTable != "undefined" || ((typeof currentStepOutputTable) !== "undefined")) {
+                        var linkToRemove;
+                        myDiagram.links.each(function (link) {           //getting links to remove
+                            if (link.data.from == currentStep.data.key &&
+                                link.data.to == currentStepOutputTable.key) {
+                                linkToRemove = link.data;
+                            }
+                            });
+                        model.removeLinkData(linkToRemove);
+                        model.removeNodeData(currentStepOutputTable);
+                    }
+                    model.addNodeData(tableToSave);
+                    myDiagram.commitTransaction("save table");
+
+                    myDiagram.startTransaction("add link");
+                    model.addLinkData({
+                        from: currentStep.data.key,
+                        to: tableToSave.key
+                    });
+                    myDiagram.commitTransaction("add link");
+                  
+                   
+                    $('#stepModal').modal('hide');
+                });
+
+                // This is the general menu command handler, parameterized by the name of the command.
+                /*
+                $("#cut").click( cxcommand(event) );
+                function cxcommand(event, val) {
+                    if (val === undefined) val = event.currentTarget.id;
+                    var diagram = myDiagramModalInputTable;
+                    switch (val) {
+                        case "cut": updateRelation(e, obj, "outerJoin"); break;
+                        case "copy": diagram.commandHandler.copySelection(); break;
+                        case "paste": diagram.commandHandler.pasteSelection(diagram.lastInput.documentPoint); break;
+                        case "delete": diagram.commandHandler.deleteSelection(); break;
+
+                    }
+                    diagram.currentTool.stopTool();
+                }
+                */
+            });
+
+            // pratap  here
+            myDiagram.nodeTemplateMap.add("File",
+              GoJs(go.Node, "Spot", nodeStyle(),
+                 GoJs(go.Shape, "File", shapeStyle(),
+                    { name: "shape", minSize: new go.Size(150, 80), fill: "#FFFFFF", stroke: "#DC3C00", strokeWidth: 4 , cursor: "move" }, //6bb300
+                    new go.Binding('width').makeTwoWay(),
+                    new go.Binding('height').makeTwoWay()),
+                GoJs(go.Panel, "Table",
+
+                  GoJs(go.TextBlock, "File",
+                    {
+                        row: 0, column: 0, font: "bold 11pt Helvetica, Arial, sans-serif", stroke: "#000000", maxSize: new go.Size(120, NaN), cursor: "move"
+                    },
+                    new go.Binding("text")),
+                  GoJs(go.TextBlock, "Description",
+                    {
+                        row: 1,
+                        column: 0, font: "8pt Helvetica, Arial, sans-serif", stroke: "#000000",
+                        isMultiline: true,
+                        overflow: go.TextBlock.OverflowEllipsis,
+                        editable: true,
+                        maxSize: new go.Size(120, NaN),
+                        maxLines: 2,
+                        textEditor: customText,
+                        cursor: "text"
+                    },
+                    new go.Binding('text', "text").makeTwoWay())
+                ),
+                //// three named ports, one on each side except the top, all output only:
+                makePort("T", go.Spot.Top, true, true),
+                makePort("L", go.Spot.Left, true, true),
+                makePort("R", go.Spot.Right, true, true),
+                makePort("B", go.Spot.Bottom, true, true)
+              ));
+
+            myDiagram.nodeTemplateMap.add("Table",
+              GoJs(go.Node, "Spot", nodeStyle(),
+                 GoJs(go.Shape, "DividedProcess", shapeStyle(),
+                    { name: "shape", minSize: new go.Size(150, 100), fill: "#FFFFFF", stroke: "#6bb300",strokeWidth: 4, cursor: "move" }, //DC3C00
+                     new go.Binding('width').makeTwoWay(),
+                    new go.Binding('height').makeTwoWay()),
+                GoJs(go.Panel, "Table",
+
+                  GoJs(go.TextBlock, "Table",
+                    {
+                        row: 0, column: 0, font: "bold 11pt Helvetica, Arial, sans-serif", stroke: "#000000", maxSize: new go.Size(120, NaN), cursor: "move"
+                    },
+                    new go.Binding("text")),
+                     GoJs(go.TextBlock, "Description",
+                    {
+                        row: 1,
+                        column: 0, font: "8pt Helvetica, Arial, sans-serif", stroke: "#000000",
+                        isMultiline: true,
+                        overflow: go.TextBlock.OverflowEllipsis,
+                        editable: true,
+                        maxSize: new go.Size(120, NaN),
+                        maxLines: 2,
+                        cursor: "text",
+                        textEditor: customText
+                    },
+                    new go.Binding('text', "description").makeTwoWay())
+                ),
+                //// three named ports, one on each side except the bottom, all input only:
+                makePort("T", go.Spot.Top, true, true),
+                makePort("L", go.Spot.Left, true, true),
+                makePort("R", go.Spot.Right, true, true),
+                makePort("B", go.Spot.Bottom, true, true)
+              ));
+
+
+            // This converter is used by the Picture.
+            function findHeadShot(key) {
+                if (key < 0 || key > 16) return "/Content/images/canvases.png"; // There are only 16 images on the server
+                return "images/HS" + key + ".png"
+            }
+
+
+            myDiagram.nodeTemplateMap.add("StepImg",
+            GoJs(go.Node, "Auto", nodeStyle(),
+                {
+                    resizeObjectName: 'PANEL'
+                },
+              GoJs(go.Shape, "Rectangle", shapeStyle(),
+                { fill: "#A7E7FC", stroke: null }),
+
+                GoJs(go.Panel, "Table",
+                    { defaultAlignment: go.Spot.TopLeft, name: "PANEL" },
+                      GoJs(go.TextBlock,
+                      {
+                          row: 1,
+                          column: 0,
+                          columnSpan: 2,
+                          margin: 5,
+                          maxSize: new go.Size(200, NaN),
+                          wrap: go.TextBlock.WrapFit,
+                          textAlign: "center",
+                          editable: true,
+                          font: "bold 12pt Helvetica, Arial, sans-serif",
+                          stroke: '#454545'
+                      },
+                      new go.Binding("text").makeTwoWay()),
+
+                    //checkbox
+                      GoJs(go.Panel, "Vertical",
+                      { row: 0, column: 1, margin: 5, defaultAlignment: go.Spot.TopLeft },
+                      GoJs("CheckBox", "choice1",
+                          GoJs(go.TextBlock, "default")
+                      )),
+
+                      GoJs(go.Panel, "Horizontal",
+                      { row: 0, column: 0, defaultAlignment: go.Spot.TopLeft },
+                      GoJs(go.Picture,
+                      {
+                          click: clickHandler,
+                          name: 'Picture',
+                          desiredSize: new go.Size(40, 30),
+                          margin: new go.Margin(5, 35, 15, 5),
+                      },
+                      new go.Binding("source", "key", findHeadShot))),
+                      new go.Binding('width').makeTwoWay(), // Add this to the resizable object
+                  new go.Binding('height').makeTwoWay())
+              //// three named ports, one on each side except the top, all output only:
+              //makePort("T", go.Spot.Top, false, true),
+              //makePort("L", go.Spot.Left, true, true),
+              //makePort("R", go.Spot.Right, true, true),
+              //makePort("B", go.Spot.Bottom, true, false)
+            ));
+
+            function clickHandler(e, obj) {
+                alert("Picture clicked");
+            }
+
+            myDiagram.groupTemplateMap.add("OfNodes",
+              GoJs(go.Group, "Vertical",
+                {
+                    background: "transparent",
+                    ungroupable: true,
+                    layout: GoJs(GroupLayout),
+                    // highlight when dragging into the Group
+                    mouseDragEnter: function (e, grp, prev) { highlightGroup(e, grp, true); },
+                    mouseDragLeave: function (e, grp, next) { highlightGroup(e, grp, false); },
+                    computesBoundsAfterDrag: true,
+                    // when the selection is dropped into a Group, add the selected Parts into that Group;
+                    // if it fails, cancel the tool, rolling back any changes
+                    mouseDrop: finishDrop,
+                    handlesDragDropForMembers: true,  // don't need to define handlers on member Nodes and Links
+                    resizable: true,
+                    resizeObjectName: 'SHAPE',
+                    //selectionObjectName: "SHAPE",
+                    mouseEnter: function (e, obj) { showPorts(obj.part, true); },
+                    mouseLeave: function (e, obj) { showPorts(obj.part, false); },
+                    //isSubGraphExpanded: false,
+                    // Groups containing Nodes lay out their members vertically
+                    subGraphExpandedChanged: function (grp) { resizeGroup(grp) }
+                },
+                new go.Binding("background", "isHighlighted", function (h) { return h ? "rgba(255,0,0,0.2)" : "transparent"; }).ofObject(),
+                GoJs(go.Panel, "Horizontal",  // button next to TextBlock
+                    {  stretch: go.GraphObject.Horizontal, background: "#33D3E5" },
+                    GoJs("SubGraphExpanderButton",
+                      { alignment: go.Spot.Right, margin: 5 }),
+                    GoJs(go.TextBlock,
+                      {
+                          alignment: go.Spot.Left,
+                          editable: true,
+                          margin: 5,
+                          font: "bold 16px sans-serif",
+                          opacity: 0.75,
+                          stroke: "#404040"
+                      },
+                      new go.Binding("text", "text").makeTwoWay())
+
+                  ),
+
+                GoJs(go.Panel, "Auto",  // title above Placeholder
+                  { name: "PANEL", stretch: go.GraphObject.Fill },
+                    // end Horizontal Panel
+                  GoJs(go.Shape, "Rectangle",
+                  { name: "SHAPE", fill: null, stroke: "#33D3E5", strokeWidth: 2 },
+                      new go.Binding('width').makeTwoWay(), // Add this to the resizable object
+                  new go.Binding('height').makeTwoWay()),
+                  GoJs(go.Placeholder,
+                  {  padding: 5 }),
+                  makePort("L", go.Spot.Left, true, true),
+              makePort("R", go.Spot.Right, true, true),
+              makePort("B", go.Spot.Bottom, true, true)
+
+                ))
+              );  // end Group and call to add to template Map
+
+            myDiagram.groupTemplateMap.add("OfGroups",
+              GoJs(go.Group, "Vertical",
+                {
+                    background: "transparent",
+                    ungroupable: true,
+                    layout: GoJs(GroupLayout),
+                    // highlight when dragging into the Group
+                    mouseDragEnter: function (e, grp, prev) { highlightGroup(e, grp, true); },
+                    mouseDragLeave: function (e, grp, next) { highlightGroup(e, grp, false); },
+                    computesBoundsAfterDrag: true,
+                    // when the selection is dropped into a Group, add the selected Parts into that Group;
+                    // if it fails, cancel the tool, rolling back any changes
+                    mouseDrop: finishDrop,
+                    handlesDragDropForMembers: true,  // don't need to define handlers on member Nodes and Links
+                    resizable: true,
+                    resizeObjectName: 'SHAPE',
+                    //selectionObjectName: "SHAPE",
+                    mouseEnter: function (e, obj) { showPorts(obj.part, true); },
+                    mouseLeave: function (e, obj) { showPorts(obj.part, false); },
+                    //isSubGraphExpanded: false,
+                    // Groups containing Nodes lay out their members vertically
+                    subGraphExpandedChanged: function (grp) { resizeGroup(grp) }
+                },
+                new go.Binding("background", "isHighlighted", function (h) { return h ? "rgba(255,0,0,0.2)" : "transparent"; }).ofObject(),
+                GoJs(go.Panel, "Horizontal",  // button next to TextBlock
+                    {  stretch: go.GraphObject.Horizontal, background: "#33D3E5" },
+                    GoJs("SubGraphExpanderButton",
+                      { alignment: go.Spot.Right, margin: 5 }),
+                    GoJs(go.TextBlock,
+                      {
+                          alignment: go.Spot.Left,
+                          editable: true,
+                          margin: 5,
+                          font: "bold 18px sans-serif",
+                          opacity: 0.75,
+                          stroke: "#404040"
+                      },
+                      new go.Binding("text", "text").makeTwoWay())
+                  ),
+
+                GoJs(go.Panel, "Auto",  // title above Placeholder
+                  { name: "PANEL", stretch: go.GraphObject.Fill },
+                    // end Horizontal Panel
+                  GoJs(go.Shape, "Rectangle",
+                  { name: "SHAPE", fill: null, stroke: "#33D3E5", strokeWidth: 2 },
+                      new go.Binding('width').makeTwoWay(), // Add this to the resizable object
+                  new go.Binding('height').makeTwoWay()),
+                  GoJs(go.Placeholder,
+                  {  padding: 5 }),
+                   makePort("L", go.Spot.Left, true, true),
+              makePort("R", go.Spot.Right, true, true),
+              makePort("B", go.Spot.Bottom, true, false)
+                ))  // end Vertical Panel
+             );  // end Group and call to add to template Map
+
+
+            function resizeGroup(grp) {
+                var shp = grp.resizeObject;
+                if (grp.diagram.undoManager.isUndoingRedoing) return;
+                if (grp.isSubGraphExpanded) {
+                    shp.height = grp._savedHeight;
+                    shp.width = grp._savedWidth;
+                } else {
+                    grp._savedHeight = shp.height;
+                    grp._savedWidth = shp.width;
+                    shp.height = NaN;
+                    shp.width = 100;
+                }
+            }
+
+
+            // Upon a drop onto a Group, we try to add the selection as members of the Group.
+            // Upon a drop onto the background, or onto a top-level Node, make selection top-level.
+            // If this is OK, we're done; otherwise we cancel the operation to rollback everything.
+            function finishDrop(e, grp) {
+                var ok = (grp !== null
+                          ? grp.addMembers(grp.diagram.selection, true)
+                          : e.diagram.commandHandler.addTopLevelParts(e.diagram.selection, true));
+                if (!ok) e.diagram.currentTool.doCancel();
+            }
+
+            // replace the default Link template in the linkTemplateMap
+            myDiagram.linkTemplate =
+              GoJs(go.Link,  // the whole link panel
+                {
+                    routing: go.Link.AvoidsNodes,
+                    curve: go.Link.JumpOver,
+                    corner: 5, toShortLength: 4,
+                    relinkableFrom: true,
+                    relinkableTo: true,
+                    reshapable: true,
+                    resegmentable: true,
+                    // mouse-overs subtly highlight links:
+                    mouseEnter: function (e, link) { link.findObject("HIGHLIGHT").stroke = "rgba(30,144,255,0.2)"; },
+                    mouseLeave: function (e, link) { link.findObject("HIGHLIGHT").stroke = "transparent"; }
+                },
+                new go.Binding("points").makeTwoWay(),
+                GoJs(go.Shape,  // the highlight shape, normally transparent
+                  { isPanelMain: true, strokeWidth: 8, stroke: "transparent", name: "HIGHLIGHT" }),
+                GoJs(go.Shape,  // the link path shape
+                  { isPanelMain: true, stroke: "gray", strokeWidth: 2 }),
+                GoJs(go.Shape,  // the arrowhead
+                  { toArrow: "standard", stroke: null, fill: "gray" }),
+                GoJs(go.Panel, "Auto",  // the link label, normally not visible
+                  { visible: true, name: "LABEL", segmentIndex: 2, segmentFraction: 0.5 },
+                  new go.Binding("visible", "visible").makeTwoWay(),
+                  GoJs(go.Shape, "RoundedRectangle",  // the label shape
+                    { fill: "#f4f2f2", stroke: null }),
+                  GoJs(go.TextBlock, "Proceed To",  // the label
+                    {
+                        textAlign: "center",
+                        font: "10pt helvetica, arial, sans-serif",
+                        stroke: "#333333",
+                        editable: true,
+                        textEditor: customText
+                    },
+                    new go.Binding("text").makeTwoWay())
+                )
+              );
+
+            // Make link labels visible if coming out of a "conditional" node.
+            // This listener is called by the "LinkDrawn" and "LinkRelinked" DiagramEvents.
+            function showLinkLabel(e) {
+                var label = e.subject.findObject("LABEL");
+                if (label !== null) label.visible = (e.subject.fromNode.data.figure === "Diamond");
+            }
+
+            // temporary links used by LinkingTool and RelinkingTool are also orthogonal:
+            myDiagram.toolManager.linkingTool.temporaryLink.routing = go.Link.Orthogonal;
+            myDiagram.toolManager.relinkingTool.temporaryLink.routing = go.Link.Orthogonal;
+
+            // initialize the Palette that is on the left side of the page
+            myPalette1 =
+              GoJs(go.Palette, "myPaletteDiv1",  // must name or refer to the DIV HTML element
+                {
+                    "animationManager.duration": 1, // slightly longer than default (600ms) animation
+                    //nodeTemplateMap: myDiagram.nodeTemplateMap,  // share the templates used by myDiagram
+                    initialScale: 0.6,
+                    model: new go.GraphLinksModel()
+                });
+
+            myPalette2 =
+              GoJs(go.Palette, "myPaletteDiv2",  // must name or refer to the DIV HTML element
+                {
+                    "animationManager.duration": 1, // slightly longer than default (600ms) animation
+                    //nodeTemplateMap: myDiagram.nodeTemplateMap,  // share the templates used by myDiagram
+                    initialScale: 0.6,
+                    model: new go.GraphLinksModel()
+                });
+
+            myPalette3 =
+              GoJs(go.Palette, "myPaletteDiv3",  // must name or refer to the DIV HTML element
+                {
+                    "animationManager.duration": 1, // slightly longer than default (600ms) animation
+                    //nodeTemplateMap: myDiagram.nodeTemplateMap,  // share the templates used by myDiagram
+                    initialScale: 0.6,
+                    model: new go.GraphLinksModel()
+                });
+
+
+            //Ciel.Process.Setting.FileToTable.LoadNodes(myPalette1);
+            Ciel.Process.Setting.FileToTable.LoadFileNodes(myPalette1);
+            Ciel.Process.Setting.FileToTable.LoadStepNodes(myPalette2);
+            Ciel.Process.Setting.FileToTable.LoadTableNodes(myPalette3);
+
+            myPalette1.nodeTemplate =
+              GoJs(go.Node, "Auto", nodeStyle(),
+                 GoJs(go.Shape, "Rectangle", shapeStyle(),
+                    {
+                        fill: GoJs(go.Brush, "Linear", { 0.0: "rgb(217, 217, 217)", 1.0: "rgb(242, 242, 242)" }),
+                        stroke: "black",
+                        minSize: new go.Size(310, 50),
+                        strokeWidth: 0.5,
+                        margin: new go.Margin(0, 0, 0, 0)
+                    }),
+                    GoJs(go.Panel, "Horizontal",
+                        GoJs(go.Panel, "Horizontal",
+                        { desiredSize: new go.Size(120, 50) },
+                          GoJs(go.TextBlock,
+                            {
+                                row: 0,
+                                column: 0,
+                                font: "14pt Arial, Arial, sans-serif",
+                                stroke: "black",
+                                margin: 2,
+                                overflow: go.TextBlock.OverflowEllipsis,
+                                maxSize: new go.Size(120, NaN),
+                                editable: false,
+                                isMultiline: false,
+                                maxLines: 1
+                            },
+                            new go.Binding("text"))),
+                            GoJs(go.Shape, "LineV",
+                            {
+                                stroke: "gray",
+                                desiredSize: new go.Size(2, 50),
+                                margin: 4
+                            }),
+                            GoJs(go.Panel, "Horizontal",
+                            { desiredSize: new go.Size(170, 50) },
+                             GoJs(go.TextBlock, "Description",
+                            {
+                                row: 1,
+                                column: 0, font: "14pt Arial, Arial, sans-serif", stroke: lightText,
+                                isMultiline: false,
+                                stroke: "black",
+                                overflow: go.TextBlock.OverflowEllipsis,
+                                editable: false,
+                                maxSize: new go.Size(165, NaN),
+                                maxLines: 1,
+                                margin: 2
+                            },
+                            new go.Binding('text', "description")))
+                ));
+
+            myPalette2.nodeTemplate =
+           GoJs(go.Node, "Auto", nodeStyle(),
+                 GoJs(go.Shape, "Rectangle", shapeStyle(),
+                    {
+                        fill: GoJs(go.Brush, "Linear", { 0.0: "rgb(217, 217, 217)", 1.0: "rgb(242, 242, 242)" }),
+                        stroke: "black",
+                        minSize: new go.Size(310, 50),
+                        strokeWidth: 0.5,
+                        margin: new go.Margin(0, 0, 0, 0)
+                    }),
+                    GoJs(go.Panel, "Horizontal",
+                        GoJs(go.Panel, "Horizontal",
+                        { desiredSize: new go.Size(120, 50) },
+                          GoJs(go.TextBlock,
+                            {
+                                row: 0,
+                                column: 0,
+                                font: "14pt Arial, Arial, sans-serif",
+                                stroke: "black",
+                                margin: 2,
+                                overflow: go.TextBlock.OverflowEllipsis,
+                                maxSize: new go.Size(120, NaN),
+                                editable: false,
+                                isMultiline: false,
+                                maxLines: 1
+                            },
+                            new go.Binding("text"))),
+                            GoJs(go.Shape, "LineV",
+                            {
+                                stroke: "gray",
+                                desiredSize: new go.Size(2, 50),
+                                margin: 4
+                            }),
+                            GoJs(go.Panel, "Horizontal",
+                            { desiredSize: new go.Size(170, 50) },
+                             GoJs(go.TextBlock, "Description",
+                            {
+                                row: 1,
+                                column: 0, font: "14pt Arial, Arial, sans-serif", stroke: lightText,
+                                isMultiline: false,
+                                stroke: "black",
+                                overflow: go.TextBlock.OverflowEllipsis,
+                                editable: false,
+                                maxSize: new go.Size(165, NaN),
+                                maxLines: 1,
+                                margin: 2
+                            },
+                            new go.Binding('text', "description")))
+                ));
+
+            myPalette3.nodeTemplate =
+            GoJs(go.Node, "Auto", nodeStyle(),
+                 GoJs(go.Shape, "Rectangle", shapeStyle(),
+                    {
+                        fill: GoJs(go.Brush, "Linear", { 0.0: "rgb(217, 217, 217)", 1.0: "rgb(242, 242, 242)" }),
+                        stroke: "black",
+                        minSize: new go.Size(310, 50),
+                        strokeWidth: 0.5,
+                        margin: new go.Margin(0, 0, 0, 0)
+                    }),
+                    GoJs(go.Panel, "Horizontal",
+                        GoJs(go.Panel, "Horizontal",
+                        { desiredSize: new go.Size(120, 50) },
+                          GoJs(go.TextBlock,
+                            {
+                                row: 0,
+                                column: 0,
+                                font: "14pt Arial, Arial, sans-serif",
+                                stroke: "black",
+                                margin: 2,
+                                overflow: go.TextBlock.OverflowEllipsis,
+                                maxSize: new go.Size(120, NaN),
+                                editable: false,
+                                isMultiline: false,
+                                maxLines: 1
+                            },
+                            new go.Binding("text"))),
+                            GoJs(go.Shape, "LineV",
+                            {
+                                stroke: "gray",
+                                desiredSize: new go.Size(2, 50),
+                                margin: 4
+                            }),
+                            GoJs(go.Panel, "Horizontal",
+                            { desiredSize: new go.Size(170, 50) },
+                             GoJs(go.TextBlock, "Description",
+                            {
+                                row: 1,
+                                column: 0, font: "14pt Arial, Arial, sans-serif", stroke: lightText,
+                                isMultiline: false,
+                                stroke: "black",
+                                overflow: go.TextBlock.OverflowEllipsis,
+                                editable: false,
+                                maxSize: new go.Size(165, NaN),
+                                maxLines: 1,
+                                margin: 2
+                            },
+                            new go.Binding('text', "description")))
+                ));
+
+
+           
+
+            clearDiagram();
+        }
+
+        function LoadDiagramsFromServer(selIndex) {
+            $.getJSON('/Scripts/CanvasLib/diagrams.json', function (data) {
+                diagrams = data;
+                $('#select-diagram').html('');
+                $('#select-diagram').append($('<option>', {
+                    value: -1,
+                    text: "---New---"
+                }));
+                $.each(data, function (i, item) {
+                    $('#select-diagram').append($('<option>', {
+                        value: i,
+                        text: item.diagramName
+                    }));
+                });
+
+                $('#select-diagram').on('change', DiagramChange);
+
+                if (selIndex != null) {
+                    $('#select-diagram option:eq(' + selIndex + ')').prop('selected', true);
+                    DiagramChange();
+                }
+            });
+        }
+
+        function DiagramChange() {
+            var selectedIndex = parseInt((this.value == null ? $('#select-diagram').val() : this.value));
+            if (selectedIndex > -1) {
+                $('#diagram-name-div').hide();
+                $('#DeleteButton').show();
+
+                currentDiagram = diagrams[selectedIndex];
+                myDiagram.model = go.Model.fromJson(JSON.stringify(currentDiagram.diagramData));
+
+                for (var i in currentDiagram.JobDetails) {
+                    $('input[name="' + i + '"]').val(currentDiagram.JobDetails[i]);
+                }
+            }
+            else {
+                clearDiagram();
+            }
+            //$.each(currentDiagram.JobDetails, function (i, item) {
+            //    $('#select-diagram').append($('<option>', {
+            //        value: i,
+            //        text: item.diagramName
+            //    }));
+            //});
+        }
+
+        function clearDiagram() {
+            if (currentDiagram != null) {
+                myDiagram.clear();
+                for (var i in currentDiagram.JobDetails) {
+                    $('input[name="' + i + '"]').val(""); //TODO : clear inputs by reading them from form
+                }
+            }
+            $('#diagram-name').val("");
+            $('#diagram-name-div').show();
+            $('#DeleteButton').hide();
+
+            currentDiagram = {
+                "diagramName": "",
+                "JobDetails": {},
+                "diagramData": {}
+            };
+        }
+
+
+        // this function is used to highlight a Group that the selection may be dropped into
+        function highlightGroup(e, grp, show) {
+            if (!grp) return;
+            e.handled = true;
+            if (show) {
+                // cannot depend on the grp.diagram.selection in the case of external drag-and-drops;
+                // instead depend on the DraggingTool.draggedParts or .copiedParts
+                var tool = grp.diagram.toolManager.draggingTool;
+                var map = tool.draggedParts || tool.copiedParts;  // this is a Map
+                // now we can check to see if the Group will accept membership of the dragged Parts
+                if (grp.canAddMembers(map.toKeySet())) {
+                    grp.isHighlighted = true;
+                    return;
+                }
+            }
+            grp.isHighlighted = false;
+        }
+
+        // Make all ports on a node visible when the mouse is over the node
+        function showPorts(node, show) {
+            var diagram = node.diagram;
+            if (!diagram || diagram.isReadOnly || !diagram.allowLink) return;
+            node.ports.each(function (port) {
+                port.stroke = (show ? "#666666" : null);
+            });
+        }
+
+        // Show the diagram's model in JSON format that the user may edit
+        function save_handle() {
+            var diagramJson = $.parseJSON(myDiagram.model.toJson());
+            if (diagramJson.nodeDataArray == null && diagramJson.linkDataArray == null) {
+                alert('No diagram to save');
+                return;
+            }
+
+            var selectedIndex = parseInt($('#select-diagram').val());
+            if (selectedIndex == -1) {
+                if ($('#diagram-name').val() == "") {
+                    alert('Please enter name');
+                    return;
+                }
+
+                currentDiagram.diagramData = $.parseJSON(myDiagram.model.toJson());
+                currentDiagram.JobDetails = $('#diagramInfo2').serializeObject();
+                currentDiagram.diagramName = $('#diagram-name').val();
+
+                diagrams.push(currentDiagram);
+            }
+            else {
+                currentDiagram.diagramData = $.parseJSON(myDiagram.model.toJson());
+                currentDiagram.JobDetails = $('#diagramInfo2').serializeObject();
+            }
+
+            Ciel.Process.Setting.FileToTable.SaveDiagram({ DiagramsJSON: JSON.stringify(diagrams) }, selectedIndex, diagrams, myDiagram);
+
+        }
+
+        // Show the diagram's model in JSON format that the user may edit
+        function GenerateYAML(data) {
+            //console.log(data);
+            //return false;
+            $('.loader').show();
+            data.LANGCD = "en";
+
+            
+            var inputErrorFunc = function (err) {
+                for (var i in err) {
+                    var msg = "<ul>";
+                    for (var c in err[i].Messages) {
+                        msg += "<li>" + err[i].Messages[c] + "</li>";
+                    }
+                    msg += "</ul>";
+
+                    $('#input-' + err[i].PropertyName + '-init').addClass("has-error");
+                    $('#input-' + err[i].PropertyName + "-init > .jobnm-control").tooltip({ html: true, title: msg, placement: 'right' }).tooltip('show');
+                    setTimeout(function () {
+                        $('#settings-container .jobnm-control').tooltip('hide');
+                    }, 3000);
+                }
+            }
+
+            // エラー表示解消
+            $('#settings-container .has-error').removeClass('has-error');
+            $('#settings-container .jobnm-control').tooltip('destroy');
+
+            // presubmit validation
+            var err = JobValidation(data);
+            console.log(err);
+            if (err.length > 0) {
+                inputErrorFunc(err);
+                $('.loader').hide();
+                return false;
+            }
+
+            //Check if mappings are added for all steps or not
+            var invalidSteps = [];
+            $.each(myDiagram.model.nodeDataArray, function (index, node) {
+                if (node.category === "Step") {
+                    if (node.StepDetails.StepAttributes.ColumnMapping.length == null || node.StepDetails.StepAttributes.ColumnMapping.length < 1) {
+                        invalidSteps.push(node.StepDetails.StepID)
+                    }
+                }
+            });
+
+            if (invalidSteps.length >= 1) {
+                alert('Mapping details are not provided for one or more steps.');
+                $('.loader').hide();
+                return;
+            }
+
+
+            var diagramObj = {
+                "diagramName": "",
+                "JobDetails": {},
+                "diagramData": {}
+            };
+            diagramObj.diagramData = $.parseJSON(myDiagram.model.toJson());
+            diagramObj.JobDetails = $('#diagramInfo2').serializeObject();
+            diagramObj.diagramName = $('#diagram-name').val();
+
+            if (diagramObj.diagramName == '') {
+                diagramObj.diagramName = $('#select-diagram option:selected').html();
+            }
+
+            Ciel.Process.Setting.FileToTable.SaveYAML({ jobJSON: JSON.stringify(diagramObj) });
+
+        }
+
+        function delete_handle() {
+            var selectedIndex = parseInt($('#select-diagram').val());
+            if (selectedIndex != -1) {
+                diagrams.splice(selectedIndex, 1);
+            }
+
+            Ciel.Process.Setting.FileToTable.DeleteDiagram({ DiagramsJSON: JSON.stringify(diagrams) });
+
+        }
+
+        // Show the diagram's model in JSON format that the user may edit
+        function generateJson() {
+            document.getElementById("mySavedModel").value = myDiagram.model.toJson();
+        }
+        function load() {
+            myDiagram.model = go.Model.fromJson(document.getElementById("mySavedModel").value);
+        }
+        function zoomToFit() {
+            myDiagram.zoomToFit();
+        }
+
+        // add an SVG rendering of the diagram at the end of this page
+        function makeSVG() {
+            var svg = myDiagram.makeSvg({
+                scale: 0.5
+            });
+            svg.style.border = "1px solid black";
+            obj = document.getElementById("SVGArea");
+            obj.appendChild(svg);
+            if (obj.children.length > 0) {
+                obj.replaceChild(svg, obj.children[0]);
+            }
+        }
+
+</script>
+
+<script type="text/javascript">
+        $.fn.serializeObject = function () {
+            var o = {};
+            var a = this.serializeArray();
+            $.each(a, function () {
+                if (o[this.name] !== undefined) {
+                    if (!o[this.name].push) {
+                        o[this.name] = [o[this.name]];
+                    }
+                    o[this.name].push(this.value || '');
+                } else {
+                    o[this.name] = this.value || '';
+                }
+            });
+            return o;
+        };
+
+        //$(document).ready(function () {
+        //    $('#diagramInfo').submit(function () {
+        //        alert(JSON.stringify($('#diagramInfo').serializeObject()));
+        //        return false;
+        //    });
+        //});
+
+        function loadDetails() {
+            for (var i in data) {
+                $('input[name="' + i + '"]').val(data[i]);
+            }
+        }
+
+
+        $(document).ready(function () {
+            init();
+        });
+</script>
+
+<div id="settings-container">
+    <div class="topButtonsBar panel panel-default" style="background-color:#E0E0E0;z-index:99;">
+        <div class="panel-body">
+            <ul>
+                <li><button id="SaveButton" data-bind="event: {click: GenerateYAML }" >Save</button></li>
+                <li><button>Show Script</button></li>
+                <li><button id="ZoomButton" onclick="zoomToFit()">Auto Arrange</button></li>
+                <li><button>Validate</button></li>
+                <li><button type="button" class="btn btn-info btn-sm" onclick="Ciel.Process.Setting.FileToTable.GetJobResults()">Execute</button></li>
+            </ul>
+        </div>
+    </div>
+    <div class="topSettingsBar panel panel-default" style="background-color:#F0F0F0;z-index:99;">
+        <div class="panel-body">
+            <div class="left">
+                <form id="diagramInfo2">
+                    <ul>
+                        <li id="input-JOBNM-init" class="name"><input type="text" name="JobName" id="JobName" data-bind="value: JOBNM" class="jobnm-control" /></li>
+                        <li class="icon"><i class="fa fa-pencil" aria-hidden="true"></i></li>
+                        <li class="status"><span>Draft</span></li>
+                    </ul>
+                </form>
+            </div>
+            <div class="right"></div>
+        </div>
+    </div>
+</div>
+
+<ul id="dock">
+    <li id="links">
+        <span class="heading">Job Components</span>
+        <ul class="free">
+            <li class="header"><a href="javascript:void(0);" class="dock"><i class="fa fa-thumb-tack" aria-hidden="true"></i></a><a href="javascript:void(0);" class="undock"><i class="fa fa-times" aria-hidden="true"></i></a>Job Components</li>
+            <li class="leftContent">
+                <div class="searchArea">
+                    <input type="text" placeholder="Search components/steps">
+                    <button type="submit"><i class="fa fa-search" aria-hidden="true"></i></button>
+                </div>
+                <div class="leftContentTabs">
+                    <!-- Nav tabs -->
+                    <ul class="nav nav-tabs" role="tablist">
+                        <li role="presentation" class="active" title="Files"><a href="#files" aria-controls="files" role="tab" data-toggle="tab" onclick="updateDiagram();"><img src='~/Areas/Process/Images/file.png' alt="Files"></a></li>
+                        <li role="presentation" title="Steps"><a href="#steps" aria-controls="steps" role="tab" data-toggle="tab" onclick="updateDiagram();"><i class="fa fa-bars" aria-hidden="true"></i></a></li>
+                        <li role="presentation" title="Tables"><a href="#tables" aria-controls="messages" role="tab" data-toggle="tab" onclick="updateDiagram();"><img src="~/Areas/Process/Images/table.png" alt="Tables"></a></li>
+                    </ul>
+                    <!-- Tab panes -->
+                    <div class="tab-content">
+                        <div role="tabpanel" class="tab-pane active" id="files">
+                            <div id="myPaletteDiv1" class="panel-body palette-div" style="height:300px;width:192px;"></div>
+                        </div>
+
+                        <div role="tabpanel" class="tab-pane" id="steps">
+                            <div id="myPaletteDiv2" class="panel-body palette-div" style="height:300px;width:192px;"></div>
+                        </div>
+
+                        <div role="tabpanel" class="tab-pane" id="tables">                            
+                            <div id="myPaletteDiv3" class="panel-body palette-div" style="height:300px;width:192px;"></div>                            
+                        </div>
+
+                    </div>
+                </div>
+            </li>
+        </ul>
+    </li>
+</ul>
+
+
+
+
+<div id="content">
+    <div id="myDiagramDiv" style="border: solid 1px gray; height: 720px;"></div>
+</div>
+<div>
+    <div class="row clearfix">
+        <button id="SaveModel" onclick="generateJson()">Save</button>
+        <button id="LoadDiagram" onclick="load()">Load</button>
+    </div>
+    <div class="row clearfix">
+        <textarea id="mySavedModel"></textarea>
+    </div>
+</div>
+
+
+<div id="customTextEditor" class="form-group" style="background-color: white; visibility: hidden;">
+    <textarea rows="4" cols="20" class="form-control"></textarea>
+</div>
+
+
+
+@* Mapping Pop-up*@
+<div class="modal fade" id="stepModal" role="dialog">
+    <div class="modal-dialog">
+
+        <!-- Modal content-->
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title">Column Mapping </h4>
+            </div>
+            <div class="modal-body">
+                <div class="container1">
+                    <a id="add_row" class="btn btn-default pull-left">Add Row</a><a id='delete_row' class="pull-right btn btn-default">Delete Row</a>
+                    <div class="row clearfix">&nbsp;</div>
+                    <div class="row clearfix">&nbsp;</div>
+                    <div class="row clearfix">
+                        <div class="col-md-12 column" style="max-height:390px;overflow:auto;">
+                            <table class="table table-bordered table-hover" id="tab_logic">
+                                <thead>
+                                    <tr>
+                                        <th class="text-center">
+                                            #
+                                        </th>
+                                        <th class="text-center">
+                                            File
+                                        </th>
+                                        <th class="text-center">
+                                            Table
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="myDiagramForModalInputTableDiv"class="row clearfix" style="border: solid 1px gray; height: 420px;"></div>
+                    <div id="contextMenu" style="display:none;">
+                        <ul>
+                            <li id="cut" ><a href="#" target="_self">Cut</a></li>
+                            <li id="copy" onclick="cxcommand(event)"><a href="#" target="_self">Copy</a></li>
+                            <li id="paste" onclick="cxcommand(event)"><a href="#" target="_self">Paste</a></li>
+                            <li id="delete" onclick="cxcommand(event)"><a href="#" target="_self">Delete</a></li>
+                         </ul>
+                    </div>
+                    <div class="row clearfix" style="border:solid 1px gray;">
+                        <div>
+
+                            <select id="existingTable">
+                                <option disabled selected value> -- Select Table -- </option>
+                            </select>
+
+                        </div>
+                    </div>
+                    <div id="myDiagramForModalOutputTableDiv" class="row clearfix" style="border: solid 1px gray; height: 420px;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="save_mapping" class="btn btn-default" >OK</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@* Job Detail Pop-up*@
+<div id="jobModal" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+
+        <!-- Modal content-->
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title">Job Details</h4>
+            </div>
+            <div class="modal-body">
+                <form id="diagramInfo" action="" method="post">
+                    <div class="form-group">
+                        <label for="fname">Job Name</label>
+                        <input type="text" class="form-control" name="JobName" id="JobName">
+                    </div>
+                    <div class="form-group">
+                        <label for="lname">Job State</label>
+                        <input type="text" class="form-control" name="JobState" id="JobState">
+                    </div>
+                    <div class="form-group">
+                        <label for="lname">Job Target</label>
+                        <input type="text" class="form-control" name="JobTarget" id="JobTarget">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Done</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+@* Result Pop-up*@
+<div class="modal fade" id="resultModal" role="dialog">
+    <div class="modal-dialog">
+
+        <!-- Modal content-->
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title">Job Data</h4>
+            </div>
+            <div class="modal-body result-modal">
+                <table class="table table-bordered" id="job" border='1'></table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal" style="background-color: #82bdf0">Close</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="loader"></div>
+
+<style>
+        .applyError {
+            background-color: red;
+        }
+
+        /* Icon when the collapsible content is shown */
+        .collapse-trigger:after {
+            font-family: "Glyphicons Halflings";
+            content: "\e114";
+            float: right;
+            margin-left: 15px;
+        }
+        /* Icon when the collapsible content is hidden */
+        .collapse-trigger.collapsed:after {
+            content: "\e080";
+        }
+
+        .palette-div {
+            width: 100%;
+            height: 100%;
+        }
+
+        /*
+    One simple way of making a div fill its space,
+    with allowances for the title (top) and the resize handle (bottom)
+    */
+        .palette-container {
+            padding: 0;
+            border: solid 1px gray;
+            height: 300px;
+            /*position:absolute;
+      bottom: 0px;
+      left: 0px;
+      right: 0px;
+      top: 0px;*/
+        }
+
+        .palette-div > div {
+            top: 0;
+            left: 0;
+        }
+
+        .result-modal{
+            max-width : 100%;
+            max-height: 720px;
+            overflow : auto;
+        }
+
+        .loader {
+           position: fixed;
+           left: 0px;
+           top: 0px;
+           width: 100%;
+           height: 100%;
+           z-index: 9999;
+           background: url('/Areas/Process/Images/image.png') 50% 50% no-repeat rgb(249,249,249);
+           display:none
+        }
+</style>
+
