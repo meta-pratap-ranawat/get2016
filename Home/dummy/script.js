@@ -30,6 +30,7 @@ $(document).ready(function () {
     myDiagramModalInputTable = Ciel.Process.ProcessDesign.CreateJob.CreateCanvas("myDiagramForModalInputTableDiv");
     myDiagramModalOutputTable = Ciel.Process.ProcessDesign.CreateJob.CreateCanvas("myDiagramForModalOutputTableDiv");
 
+
     var tool = myDiagramModalInputTable.toolManager.linkingTool;
     tool.isValidFrom = function (fromnode, fromport) {
 
@@ -49,6 +50,47 @@ $(document).ready(function () {
         return true;
 
     }
+   
+    myDiagramModalInputTable.addDiagramListener("LinkDrawn", function (e) {
+        var link = e.subject;
+        var linkData = link.data;
+        var fromNode = myDiagramModalInputTable.findNodeForKey(linkData.from);
+        var toNode = myDiagramModalInputTable.findNodeForKey(linkData.to);
+        var fromNodeGroup = fromNode.data.group;
+        var toNodeGroup = toNode.data.group;
+        var updateLink = true;
+        
+        myDiagramModalInputTable.links.each(function (storedLink) {
+            
+            if (updateLink && storedLink.data !== null && ( (myDiagramModalInputTable.findNodeForKey(storedLink.data.from).data.group === fromNodeGroup &&
+                myDiagramModalInputTable.findNodeForKey(storedLink.data.to).data.group === toNodeGroup) ||
+                (myDiagramModalInputTable.findNodeForKey(storedLink.data.from).data.group === toNodeGroup &&
+                myDiagramModalInputTable.findNodeForKey(storedLink.data.to).data.group === fromNodeGroup))) {
+                var relationType = storedLink.data.relationType;
+                var res,re,r;
+                if (typeof relationType !== "undefined") {
+                    res = relationType.match(/innerJoin/) + relationType.match(/fullJoin/) + relationType.match(/rightJoin/)
+                            + relationType.match(/leftJoin/) + relationType.match(/fullOuter/) + relationType.match(/leftOuter/)
+                            + relationType.match(/rightOuter/);
+                    res = res.replace(/null/g, "");
+                    res = res.replace(/0/g, "");
+                } else {
+                    res = "innerJoin";
+                }
+                 
+
+                myDiagramModalInputTable.startTransaction("set node");
+                myDiagramModalInputTable.model.setDataProperty(linkData, "relationType", res);
+                myDiagramModalInputTable.model.setDataProperty(linkData, "toolTipText",
+                    (res.toUpperCase() + ": " + myDiagramModalInputTable.findNodeForKey(fromNodeGroup).data.WorkspaceTableName + "." + fromNode.data.columnname + " = " + myDiagramModalInputTable.findNodeForKey(toNodeGroup).data.WorkspaceTableName + "." + toNode.data.columnname));
+                myDiagramModalInputTable.commitTransaction("set node");
+                updateLink = false;
+            }
+
+        });
+       // 
+    });
+    
 
     $("#dock .undock").click(function () {
         $(this).find("ul.free").animate({ left: "-240px" }, 200);
@@ -160,7 +202,7 @@ $(document).ready(function () {
                 existingTable[i].isGroup = true;
                 model.addNodeData(existingTable[i]);  // adding table
                 for (j = 0; j < existingTable[i].Fields.length; j++) {         // adding columns
-                    var newNodeColumn = [];
+                    var newNodeColumn = {};
                     newNodeColumn.group = existingTable[i].key;
                     newNodeColumn.category = "Column";
                     newNodeColumn.columnname = existingTable[i].Fields[j].COLUMNNAME;
@@ -173,10 +215,11 @@ $(document).ready(function () {
 
         myDiagramModalOutputTable.model = model;
         myDiagramModalOutputTable.commitTransaction("change table");
-        //console.log("done edited");
+       
     });
 
     $("#save_mappings").on('click', function () {
+        debugger;
         currentStep.data["modalOutputTablesMapping"] = JSON.parse(JSON.stringify(myDiagramModalOutputTable.model));
         currentStep.data["modalInputTablesMapping"] = JSON.parse(JSON.stringify(myDiagramModalInputTable.model));
         var modalOutputTable = {};
@@ -187,11 +230,8 @@ $(document).ready(function () {
             }
         });
 
-        // console.log(currentStep.data.key);
-        //  console.log(outputTable);
-
         myDiagramModalOutputTable.nodes.each(function (node) {
-            if (node.data.category == "Table" && (node.data.text != "Selected Column")) {
+            if (node.data.category == "Table" && (node.data.WorkspaceTableName != "Selected Column")) {
                 modalOutputTable = node.data;
             }
         });
@@ -205,13 +245,15 @@ $(document).ready(function () {
                     id: node.data.columnid,
                     seq: 200
                 });
+
+                console.log("error in deleting");
             }
         });
 
 
         canvas.startTransaction("save table");
         var model = canvas.model;
-        if (currentStepOutputTable != "undefined" || ((typeof currentStepOutputTable) !== "undefined")) {
+        if (((typeof currentStepOutputTable) !== "undefined")) {
             var linkToRemove;
             canvas.links.each(function (link) {           //getting links to remove
                 if (link.data.from == currentStep.data.key &&
@@ -221,6 +263,7 @@ $(document).ready(function () {
             });
             model.removeLinkData(linkToRemove);
             model.removeNodeData(currentStepOutputTable);
+            console.log("deleting link and node");
         }
         model.addNodeData(tableToSave);
         canvas.commitTransaction("save table");
@@ -326,25 +369,148 @@ window.onresize = function () {
     var shapeStyle = function () {
         return [
           {
-              cursor: "pointer"
+              portId: "",
+              cursor: "pointer",
           }
         ];
     }
 
     var makePort = function (name, spot, output, input) {
         // the port is basically just a small circle that has a white stroke when it is made visible
-        return goJs(go.Shape, "Circle",
-                 {
-                     fill: "transparent",
-                     stroke: null,  // this is changed to "white" in the showPorts function
-                     desiredSize: new go.Size(8, 8),
-                     alignment: spot, alignmentFocus: spot,  // align the port on the main Shape
-                     portId: name,  // declare this object to be a "port"
-                     fromSpot: spot, toSpot: spot,  // declare where links may connect at this port
-                     cursor: "pointer",  // show a different cursor to indicate potential link point
-                     fromLinkable: true, fromLinkableSelfNode: true, fromLinkableDuplicates: true,
-                     toLinkable: true, toLinkableSelfNode: true, toLinkableDuplicates: true
-                 });
+        var shape;
+
+        if (name == "T") {
+
+
+            return goJs(go.Panel, { row: 0, column: 1 },
+                    goJs(go.Panel, "Vertical",
+                          goJs(go.Shape, "TriangleUp",
+                                 {
+                                     stroke: null, strokeWidth: 1,
+                                     desiredSize: new go.Size(20, 10),
+                                     fill: "transparent",
+                                     portId: name,
+                                     fromLinkable: output, toLinkable: input, cursor: "pointer",
+                                     fromSpot: spot, toSpot: spot,
+                                 }
+
+                             ),
+                           goJs(go.Shape, "Rectangle",
+                                 {
+
+                                     stroke: null, strokeWidth: 0,
+                                     desiredSize: new go.Size(20, 10),
+                                     margin: new go.Margin(0, 0, 0, 0),
+                                     fill: "transparent",
+                                     alignment: go.Spot.Top, alignmentFocus: go.Spot.Top,
+                                     alignmentFocus: go.Spot.Top.opposite(),// align the port on the main Shape
+                                     fromSpot: spot, toSpot: spot,
+                                     fromLinkable: output, toLinkable: input, cursor: "pointer"
+                                 }
+
+                             )
+
+                    )  // end itemTemplate
+                 )
+
+
+        } else if (name == "R") {
+
+            return goJs(go.Panel, { row: 1, column: 2 },
+                   goJs(go.Panel, "Horizontal",
+                           goJs(go.Shape, "Rectangle",
+                                {
+
+                                    stroke: null, strokeWidth: 1,
+                                    desiredSize: new go.Size(10, 20),
+                                    fill: "transparent",
+                                    portId: name,
+                                    fromSpot: spot, toSpot: spot,
+                                    fromLinkable: output, toLinkable: input, cursor: "pointer"
+                                    
+                                }
+
+                            ),
+                         goJs(go.Shape, "TriangleRight",
+                                {
+                                    stroke: null, strokeWidth: 1,
+                                    desiredSize: new go.Size(10, 20),
+                                    margin: new go.Margin(0, 0, 0, 0),
+                                    fill: "transparent",
+                                    alignment: go.Spot.Top, alignmentFocus: go.Spot.Top,
+                                    alignmentFocus: go.Spot.Top.opposite(),// align the port on the main Shape
+                                    portId: name,
+                                    fromSpot: spot, toSpot: spot,
+                                    fromLinkable: output, toLinkable: input,
+                                    cursor: "pointer"
+                                }
+
+                            )
+                   )  // end itemTemplate
+                )
+
+        } else if (name == "L") {
+
+            return goJs(go.Panel, { row: 1, column: 0 },
+            goJs(go.Panel, "Horizontal",
+                   goJs(go.Shape, "TriangleLeft",
+                         {
+                             stroke: null, strokeWidth: 1,
+                             desiredSize: new go.Size(10, 20),
+                             fill: "transparent",
+                             portId: name,
+                             fromSpot: spot, toSpot: spot,
+                             fromLinkable: output, toLinkable: input, cursor: "pointer"
+                             
+                         }
+                     ),
+                       goJs(go.Shape, "Rectangle",
+                         {
+                             stroke: null, strokeWidth: 0,
+                             desiredSize: new go.Size(10, 20),
+                             margin: new go.Margin(0, 0, 0, 0),
+                             fill: "transparent",
+                             alignment: go.Spot.Top, alignmentFocus: go.Spot.Top,
+                             alignmentFocus: go.Spot.Top.opposite(),// align the port on the main Shape
+                             fromSpot: spot, toSpot: spot,
+                             fromLinkable: output, toLinkable: input, cursor: "pointer"
+                            
+                         }
+                     )
+            )  // end itemTemplate
+         )
+
+        } else {
+            return goJs(go.Panel, { row: 2, column: 1 },
+                   goJs(go.Panel, "Vertical",
+                           goJs(go.Shape, "Rectangle",
+                                {
+
+                                    stroke: null, strokeWidth: 0,
+                                    desiredSize: new go.Size(20, 10),
+
+                                    fill: "transparent",
+                                    fromSpot: spot, toSpot: spot,
+                                    fromLinkable: output, toLinkable: input, cursor: "pointer"
+                                }
+                            ),
+                          goJs(go.Shape, "TriangleDown",
+                                {
+                                    stroke: null, strokeWidth: 1,
+                                    desiredSize: new go.Size(20, 10),
+                                    margin: new go.Margin(0, 0, 0, 0),
+                                    fill: "transparent",
+                                    alignment: go.Spot.Top, alignmentFocus: go.Spot.Top,
+                                    alignmentFocus: go.Spot.Top.opposite(),// align the port on the main Shape
+                                    portId: name,
+                                    fromSpot: spot, toSpot: spot,
+                                    fromLinkable: output, toLinkable: input, cursor: "pointer"
+                                }
+                            )
+                   )  // end itemTemplate
+                )
+        }
+
     }
 
     var finishDrop = function (e, grp) {
@@ -355,10 +521,14 @@ window.onresize = function () {
     }
 
     var showPorts = function (node, show) {
+
         var diagram = node.diagram;
         if (!diagram || diagram.isReadOnly || !diagram.allowLink) return;
         node.ports.each(function (port) {
-            port.stroke = (show ? "#666666" : null);
+            if (port.portId != "") {
+
+                port.stroke = (show ? "Gray" : null);
+            }
         });
     }
 
@@ -481,8 +651,27 @@ window.onresize = function () {
                 "animationManager.duration": 600,
                 "undoManager.isEnabled": true,
                 "commandHandler.archetypeGroupData": { text: "Group", isGroup: true, color: "blue", category: "OfNodes" },
-                "linkingTool.isUnconnectedLinkValid": true,
-                "relinkingTool.isUnconnectedLinkValid": true
+                "linkingTool.isUnconnectedLinkValid": false,
+                "relinkingTool.isUnconnectedLinkValid": false,
+                "linkingTool.linkValidation": function (from, fromport, to, toport, link) {
+
+                    if (from.findLinksBetween(to, null, null).count == 1) return false;
+                    if (from.data.category === "Step") {
+                        if (from.findNodesOutOf().count === 1)
+                        {
+                            return false;
+                        }
+                        else {
+                            if (from.findNodesOutOf().count === 0 && to.data.category !== "Table")
+                            {
+                                return false;
+                            }
+                            return true;
+                        }
+                    } else {
+                        return true;
+                    }
+                }
             });
 
         ns.globalCanvas = canvas;
@@ -565,6 +754,7 @@ window.onresize = function () {
               new go.Binding("location", "loc", go.Point.parse).makeTwoWay(go.Point.stringify),
               {
                   resizable: true,
+                  resizeObjectName: 'shape',
                   reshapable: true,
                   locationSpot: go.Spot.Center,
                   //doubleClick: function () { $('#myModal').modal('show'); },
@@ -574,8 +764,8 @@ window.onresize = function () {
                   //isShadowed: true,
                   //shadowColor: "#888",
                   // handle mouse enter/leave events to show/hide the ports
-                  //mouseEnter: function (e, obj) { showPorts(obj.part, true); },
-                  //mouseLeave: function (e, obj) { showPorts(obj.part, false); }
+                  mouseEnter: function (e, obj) { showPorts(obj.part, true); },
+                  mouseLeave: function (e, obj) { showPorts(obj.part, false); }
               }
             ];
         }
@@ -800,11 +990,11 @@ window.onresize = function () {
                     fill: goJs(go.Brush, "Linear", { 0.0: "#7db2e0", 1.0: "#c1daf0", start: go.Spot.Left, end: go.Spot.Right })
                 },
                 new go.Binding('width').makeTwoWay(),
-                new go.Binding('height').makeTwoWay()),
-                makePort("T", go.Spot.Top, true, true),
-                makePort("L", go.Spot.Left, true, true),
-                makePort("R", go.Spot.Right, true, true),
-                makePort("B", go.Spot.Bottom, true, true)
+                new go.Binding('height').makeTwoWay())
+               // makePort("T", go.Spot.Top, false, false),
+              //  makePort("L", go.Spot.Left, false, false),
+              //  makePort("R", go.Spot.Right, false, false),
+              //  makePort("B", go.Spot.Bottom, false, false)
         ));
 
 
@@ -821,72 +1011,77 @@ window.onresize = function () {
                 source: CONFIG_APP_BASEURL + "/Areas/Process/Images/databasetable.png"
             }),
              new go.Binding('width').makeTwoWay(),
-                new go.Binding('height').makeTwoWay()
+                new go.Binding('height').makeTwoWay(),
+                 makePort("T", go.Spot.Top, true, false),
+                makePort("L", go.Spot.Left, true, false),
+                makePort("R", go.Spot.Right, true, false),
+                makePort("B", go.Spot.Bottom, true, false)
         ));
 
         canvas.nodeTemplateMap.add("Table",
-              goJs(go.Node, "Spot", {
-                  click: fileNodeClicked, selectionChanged: objPropertiesViewModel.updateAttributes
-              },
-                 goJs(go.Shape, "DividedProcess", shapeStyle(),
-                    { name: "shape", minSize: new go.Size(150, 100), fill: "#FFFFFF", stroke: "#6bb300", strokeWidth: 4, cursor: "move" }, //DC3C00
-                     new go.Binding('width').makeTwoWay(),
-                    new go.Binding('height').makeTwoWay()),
-                goJs(go.Panel, "Table",
+             goJs(go.Node, "Table", nodeStyle(), {
+                 click: fileNodeClicked, selectionChanged: objPropertiesViewModel.updateAttributes,
+                 selectionAdorned: false,//selection
+             },
 
-                  goJs(go.TextBlock, "Table",
-                    {
-                        row: 0, column: 0, font: "bold 11pt Helvetica, Arial, sans-serif", stroke: "#000000", maxSize: new go.Size(120, NaN), cursor: "move"
-                    },
-                    new go.Binding("text")),
-                     goJs(go.TextBlock, "Description",
-                    {
-                        row: 1,
-                        column: 0, font: "8pt Helvetica, Arial, sans-serif", stroke: "#000000",
-                        isMultiline: true,
-                        overflow: go.TextBlock.OverflowEllipsis,
-                        editable: true,
-                        maxSize: new go.Size(120, NaN),
-                        maxLines: 2,
-                        cursor: "text",
-                        textEditor: customText
-                    },
-                    new go.Binding('text', "description").makeTwoWay())
-                ),
-                //// three named ports, one on each side except the bottom, all input only:
-                makePort("T", go.Spot.Top, true, true),
-                makePort("L", go.Spot.Left, true, true),
-                makePort("R", go.Spot.Right, true, true),
-                makePort("B", go.Spot.Bottom, true, true)
-              ));
+
+                goJs(go.Shape, "DividedProcess", shapeStyle(),
+                   { row: 1, column: 1, name: "shape", minSize: new go.Size(150, 100), fill: "#FFFFFF", stroke: "#6bb300", strokeWidth: 3, cursor: "move" }, //DC3C00
+                    new go.Binding('width').makeTwoWay(),
+                   new go.Binding('height').makeTwoWay()),
+
+                goJs(go.Panel, "Table",
+                   { row: 1, column: 1 },
+                 goJs(go.TextBlock, "Table",
+                   {
+                       row: 0, column: 0, font: "bold 11pt Helvetica, Arial, sans-serif", stroke: "#000000", maxSize: new go.Size(120, NaN), cursor: "move"
+                   },
+                   new go.Binding("text", "WorkspaceTableName")),
+                    goJs(go.TextBlock, "Description",
+                   {
+                       row: 1, column: 0,
+                       margin: 10,
+                       font: "8pt Helvetica, Arial, sans-serif", stroke: "#000000",
+                       isMultiline: true,
+                       overflow: go.TextBlock.OverflowEllipsis,
+                       editable: true,
+                       maxSize: new go.Size(120, NaN),
+                       maxLines: 2,
+                       cursor: "text",
+                       textEditor: customText
+                   },
+                   new go.Binding('text', "description").makeTwoWay())
+                   ),
+
+
+               makePort("T", go.Spot.Top, true, true),
+               makePort("L", go.Spot.Left, true, true),
+               makePort("R", go.Spot.Right, true, true),
+               makePort("B", go.Spot.Bottom, true, true)
+             ));
+
         canvas.nodeTemplateMap.add("Step",  // the default category
-            goJs(go.Node, "Spot", nodeStyle(),
+            goJs(go.Node, "Table", nodeStyle(),
                   {
-                      doubleClick: stepClicked
+                      doubleClick: stepClicked,
+                      selectionAdorned: false
+                      
                   },
                goJs(go.Shape, "SquareArrow", shapeStyle(),
                   {
-                      fill: "#FFFFFF", stroke: "#00A9C9", minSize: new go.Size(160, 70), cursor: "move", strokeWidth: 4
+                      row: 1, column: 1, name: "shape", fill: "#FFFFFF", stroke: "#00A9C9", minSize: new go.Size(160, 70), cursor: "move", strokeWidth: 4
                   },
-                  new go.Binding("figure", "figure"),
-                  new go.Binding("minSize", "minSize")),
+                 new go.Binding('width').makeTwoWay(),
+                    new go.Binding('height').makeTwoWay()),
               // the main object is a Panel that surrounds a TextBlock with a rectangular Shape
               goJs(go.Panel, "Table",
-
-                goJs(go.TextBlock,
-                  {
-                      row: 0,
-                      column: 0,
-                      font: "bold 11pt Helvetica, Arial, sans-serif",
-                      stroke: "#000000",
-                      margin: 8,
-                      maxSize: new go.Size(140, NaN),
-                      wrap: go.TextBlock.WrapFit,
-                      editable: false,
-                      cursor: "move"
-                  },
-                  new go.Binding("text").makeTwoWay()),
-                   goJs(go.TextBlock, "Description",
+                 { row: 1, column: 1 },
+                goJs(go.TextBlock, "Table",
+				 {
+				     row: 0, column: 0, font: "bold 11pt Helvetica, Arial, sans-serif", stroke: "#000000", maxSize: new go.Size(120, NaN), cursor: "move"
+				 },
+					 new go.Binding("text")),
+					  goJs(go.TextBlock, "Description",
                   {
                       row: 1,
                       column: 0, font: "8pt Helvetica, Arial, sans-serif", stroke: "#000000",
@@ -898,16 +1093,17 @@ window.onresize = function () {
                       textEditor: customText,
                       cursor: "text"
                   },
+
+
                   new go.Binding('text', "description").makeTwoWay())
               ),
               //// four named ports, one on each side:
-              makePort("T", go.Spot.Top, false, true),
-              makePort("L", go.Spot.Left, true, true),
-              makePort("R", go.Spot.Right, true, true),
-              makePort("B", go.Spot.Bottom, true, false),
-                  new go.Binding('width').makeTwoWay(),
-                  new go.Binding('height').makeTwoWay()
-            ));
+              makePort("T", go.Spot.Top, false, false),
+              makePort("L", go.Spot.Left, false, true),
+              makePort("R", go.Spot.Right, true, false),
+              makePort("B", go.Spot.Bottom, false, false)
+
+     ));
         //Load nodes in the palette
         loadTableNodes(tablesPalette);
         loadFileNodes(filesPalette);
@@ -1632,23 +1828,50 @@ window.onresize = function () {
     function stepClicked(e, obj) {
         currentStep = obj.part;
 
-        function addTemplateForDiagram(MyDiagram) {
+        function addTemplateForDiagram(MyDiagram, input) {
             MyDiagram.groupTemplateMap.add("Table", Ciel.Process.ProcessDesign.CreateJob.groupTemplateForTable());  // end Group and call to add to template Map
-            MyDiagram.nodeTemplateMap.add("Column", Ciel.Process.ProcessDesign.CreateJob.nodeTemplateForColumn());   //for Column       
+            if (input) {
+                MyDiagram.nodeTemplateMap.add("Column", Ciel.Process.ProcessDesign.CreateJob.nodeTemplateForColumn());
+            } else {
+                MyDiagram.nodeTemplateMap.add("Column", Ciel.Process.ProcessDesign.CreateJob.nodeTemplateForColumnInOutputCanvas());
+            }
+                   
+        }
+
+        existingTable = JSON.parse(JSON.stringify(tablesPalette.model.nodeDataArray));
+        // temp location start # for loading/getting existingTable
+        numberOfTables = existingTable.length;
+        var select = document.getElementById("existingTable");
+        select.options.length = 1;
+        for (i = 0; i < numberOfTables; i++) {
+            var option = document.createElement("option");
+            option.text = existingTable[i].WorkspaceTableName;
+            option.value = existingTable[i].WorkspaceTableName;
+            select.appendChild(option);
         }
 
         if (typeof currentStep.data.modalInputTablesMapping !== "undefined") {
             myDiagramModalInputTable.model = go.Model.fromJson(JSON.parse(JSON.stringify(currentStep.data.modalInputTablesMapping)));
             myDiagramModalOutputTable.model = go.Model.fromJson(JSON.parse(JSON.stringify(currentStep.data.modalOutputTablesMapping)));
-            console.log("i am in adding model from previous data");
+            
         }
         else {
-
+            
             /*input table start*/
             var tablesToCurrentStep = [];
             currentStep.findNodesInto().each(function (n) {
                 if (n.data.category == "Table") {
                     tablesToCurrentStep.push(n.data);
+                } else {
+                    if (n.data.category == "FileWithTable") {
+                        var add = true;
+                        tablesPalette.nodes.each(function (node) {
+                            if (add && n.data.OutputTableName == node.data.WorkspaceTableName) {
+                                node.data.key = n.data.key;
+                                tablesToCurrentStep.push(node.data); add = false;
+                            }
+                        });
+                    }
                 }
             });
             var TableInJson = [];
@@ -1657,10 +1880,13 @@ window.onresize = function () {
 
             var linkDataArray = [];
 
-            addTemplateForDiagram(myDiagramModalInputTable);
+            addTemplateForDiagram(myDiagramModalInputTable, true);
+            
             myDiagramModalInputTable.linkTemplate = Ciel.Process.ProcessDesign.CreateJob.linkTemplateForRelationsMapping();
 
             myDiagramModalInputTable.model = new go.GraphLinksModel(nodeDataArray, linkDataArray);
+
+            
 
             var tablesFromCurrentStep = [];
             currentStep.findNodesOutOf().each(function (n) {
@@ -1676,6 +1902,7 @@ window.onresize = function () {
             if (TableInJson.length != 0) {
                 nodeDataArray.push(Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(TableInJson[0]));
                 Array.prototype.push.apply(nodeDataArray, Ciel.Process.ProcessDesign.CreateJob.getColumnsFromTable(TableInJson[0]));
+                select.value = TableInJson[0].WorkspaceTableName;
             }
 
 
@@ -1687,27 +1914,20 @@ window.onresize = function () {
             });
 
             linkDataArray = [];
-            addTemplateForDiagram(myDiagramModalOutputTable);
+            addTemplateForDiagram(myDiagramModalOutputTable, false);
             myDiagramModalOutputTable.linkTemplate = Ciel.Process.ProcessDesign.CreateJob.linkTemplateForMapping();
             myDiagramModalOutputTable.model = new go.GraphLinksModel(nodeDataArray, linkDataArray);
 
         }
 
-        existingTable = JSON.parse(JSON.stringify(tablesPalette.model.nodeDataArray));
-        console.log(existingTable);
+        
+       // myDiagramModalInputTable.zoomToRect(myDiagramModalInputTable.documentBounds);
 
-        // temp location start # for loading/getting existingTable
-        numberOfTables = existingTable.length;
-        var select = document.getElementById("existingTable");
-        select.options.length = 1;
-        for (i = 0; i < numberOfTables; i++) {
-            var option = document.createElement("option");
-            option.text = existingTable[i].WorkspaceTableName;
-            option.value = existingTable[i].WorkspaceTableName;
-            select.appendChild(option);
-        }
+       
+        
+       
         // temp location end
-        console.log(existingTable);
+        
         numberOfTables = existingTable.length;
         $("#stepModal").modal('show');
     }
@@ -1717,14 +1937,17 @@ window.onresize = function () {
         return goJs(go.Diagram, divID,  // must name or refer to the DIV HTML element
     {
         //doubleClick: showJobModal,
+        initialDocumentSpot: go.Spot.Center,
+        initialViewportSpot: go.Spot.Center,
         initialContentAlignment: go.Spot.Center,
         resizingTool: new laneResizingTool(),
         layout: goJs(groupLayout),
         mouseDragOver: function (e) {
+            e.diagram.zoomToFit();
             if (executeDragOver) {
                 executeDragOver = false;
                 var nodeCount = 0;
-                var it = canvas.toolManager.draggingTool.draggingParts.iterator;
+                var it = e.diagram.toolManager.draggingTool.draggingParts.iterator;
                 while (it.next()) {
                     if (nodeCount > 0) {
                         var node = it.value;
@@ -1738,8 +1961,8 @@ window.onresize = function () {
             e.subject.each(function (node) {
                 node.opacity = 1;
             });
-            canvas.commandHandler.expandSubGraph();
-            canvas.zoomToFit();
+            e.diagram.commandHandler.expandSubGraph();
+            e.diagram.zoomToFit();
         },
         allowDrop: true,  // must be true to accept drops from the Palette
         // what to do when a drag-drop occurs in the Diagram's background
@@ -1752,9 +1975,18 @@ window.onresize = function () {
         "commandHandler.archetypeGroupData": { text: "Group", isGroup: true, color: "blue", category: "Table" },
         "linkingTool.isUnconnectedLinkValid": false,
         "relinkingTool.isUnconnectedLinkValid": false,
+        "commandHandler.canDeleteSelection": function () {   
+                var link = this.diagram.selection.first();
+                if (link!=null && link.part instanceof go.Link) {
+                    return true;
+                } else {
+                return false;
+                }
+        },
         "linkingTool.linkValidation": function (from, fromPort, to, toPort, link) {
-            console.log(from.findLinksBetween(to, null, null));
-            if ( from.findLinksBetween(to, null, null).count==1 ) return false;
+            
+            if (from.findLinksBetween(to, null, null).count == 1) return false;
+
             return from.containingGroup !== to.containingGroup;
         }
     });
@@ -1870,23 +2102,105 @@ window.onresize = function () {
                        );
     }
 
+    ns.nodeTemplateForColumnInOutputCanvas = function () {
+        return goJs(go.Node, "Auto", Ciel.Process.ProcessDesign.CreateJob.nodeStyleForColumn(),
+                          goJs(go.Shape, "Rectangle", shapeStyle(),
+                              { fill: "transparent", stroke: null, },
+                             new go.Binding("fill", "color")),
+                         // the main object is a Panel that surrounds a TextBlock with a rectangular Shape
+                         goJs(go.Panel, "Table",
+                                     { defaultAlignment: go.Spot.TopCenter, name: "PANEL" },
+                                      goJs(go.RowColumnDefinition, { column: 0, width: 8 }),
+                                      goJs(go.RowColumnDefinition, { column: 1 }),
+                                      goJs(go.RowColumnDefinition, { column: 2, width: 5 }),
+                                     goJs(go.Panel, "Horizontal",
+                                  { row: 0, column: 1, margin: 5, defaultAlignment: go.Spot.TopCenter },
+                                      goJs(go.TextBlock,
+                                      {
+                                          row: 0, column: 1,
+                                          margin: 5,
+                                          editable: true,
+                                          wrap: go.TextBlock.WrapFit,
+                                          font: "bold 13px sans-serif",
+                                          opacity: 0.75,
+                                          stroke: "#404040"
+                                      },
+                                      new go.Binding("text", "columnname").makeTwoWay()),
+
+                                      goJs(go.TextBlock,
+                                      {
+                                          row: 0, column: 1,
+                                          margin: 5,
+                                          editable: true,
+                                          wrap: go.TextBlock.WrapFit,
+                                          font: "bold 10px sans-serif",
+                                          opacity: 0.75,
+                                          stroke: "#404040"
+                                      },
+                                      new go.Binding("text", "columntype").makeTwoWay()),
+
+                                      goJs(go.TextBlock,
+                                      {
+                                          row: 0, column: 1,
+                                          margin: 5,
+                                          editable: true,
+                                          wrap: go.TextBlock.WrapFit,
+                                          font: "bold 13px sans-serif",
+                                          opacity: 0.75,
+                                          stroke: "#404040",
+                                          visible: false
+                                      },
+                                      new go.Binding("text", "columnid").makeTwoWay())
+                                )),
+                         //// four named ports, one on each side:
+
+                          Ciel.Process.ProcessDesign.CreateJob.makePortForColumn("L", go.Spot.Left, true, true),
+                          Ciel.Process.ProcessDesign.CreateJob.makePortForColumn("R", go.Spot.Right, true, true)
+                       );
+    }
+
     ns.linkTemplateForRelationsMapping = function () {
 
         return goJs(go.Link,  // the whole link panel
         {
             routing: go.Link.AvoidsNodes,
             curve: go.Link.JumpOver,
-            corner: 5, toShortLength: 4,
+            corner: 5, toShortLength: 4,fromShortLength:100,
             relinkableFrom: false,
             relinkableTo: false,
             reshapable: false,
             resegmentable: true,
+            selectionAdorned: false,    
             // mouse-overs subtly highlight links:
             mouseEnter: function (e, link) { link.findObject("HIGHLIGHT").stroke = "rgba(30,144,255,0.2)"; },
             mouseLeave: function (e, link) { link.findObject("HIGHLIGHT").stroke = "transparent"; },
         
-            contextMenu:
-                goJs(go.Adornment, "Vertical",
+            contextMenu:goJs(go.Adornment, "Vertical",
+                 goJs(go.Panel, "Vertical", // title above Placeholder
+              goJs(go.Panel, "Horizontal",  // button next to TextBlock
+                { stretch: go.GraphObject.Horizontal, background: "#ccc" },
+                goJs(go.TextBlock,"Select Join",
+                  {
+                      alignment: go.Spot.Left,
+                      editable: true,
+                      margin: 5,
+                      font: "bold 12px sans-serif",
+                      opacity: 0.75,
+                      stroke: "#404040"
+                  }
+                  )
+              ),  // end Horizontal Panel
+              
+                Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("innerJoin"),
+                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("fullJoin"),
+                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("leftJoin"),
+                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("rightJoin"),
+                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("fullOuter"),
+                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("leftOuter"),
+                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("rightOuter")
+            )// end Vertical Panel
+            ) //end of adornment
+              /*  goJs(go.Adornment, "Vertical",
                      Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("innerJoin"),
                      Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("fullJoin"),
                      Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("leftJoin"),
@@ -1894,7 +2208,7 @@ window.onresize = function () {
                      Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("fullOuter"),
                      Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("leftOuter"),
                      Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("rightOuter")
-            )
+            ) */
         },
         new go.Binding("points").makeTwoWay(),
         goJs(go.Shape,  // the highlight shape, normally transparent
@@ -2065,8 +2379,6 @@ window.onresize = function () {
     }
 
     ns.updatedColumnInTable = function (e, obj) {
-        console.log("entered");
-
         var key;
         var outputModel = myDiagramModalOutputTable.model;
         if (e.diagram.model == outputModel) {
@@ -2106,7 +2418,7 @@ window.onresize = function () {
             if (node.data.WorkspaceTableName == "Selected Column")
             { key = node.data.key; }
         });
-        console.log(key);
+       
         //adding column
         myDiagramModalInputTable.nodes.each(function (n) {
 
@@ -2127,7 +2439,7 @@ window.onresize = function () {
                             add = false;
                         }
                     });
-                    if (add) { outputModel.addNodeData(newNodeColumn); console.log("adding"); }
+                    if (add) { outputModel.addNodeData(newNodeColumn);  }
 
                 } else {
                     var newNodeColumn = {};
@@ -2139,7 +2451,7 @@ window.onresize = function () {
                         }
                     });
 
-                    if (remove) { console.log("deleting" + outputModel.removeNodeData(newNodeColumn)); }
+                    if (remove) { outputModel.removeNodeData(newNodeColumn); }
                 }
             }
         });
@@ -2207,22 +2519,30 @@ window.onresize = function () {
 
     // replace the default Link template in the linkTemplateMap
     ns.updateRelation = function (e, obj, newSource) {
-        e.diagram.startTransaction("changed relation");
-        // get the context menu that holds the button that was clicked
         var contextmenu = obj.part;
-        // get the node data to which the Node is data bound
-        var nodedata = contextmenu.data;
+        var selectedLinkData = contextmenu.data;
         var model = e.diagram.model;
-        var fromNode = model.findNodeDataForKey(nodedata.from);
-        var toNode = model.findNodeDataForKey(nodedata.to);
-        var fromNodeTable = model.findNodeDataForKey(fromNode.group);
-        var toNodeTable = model.findNodeDataForKey(toNode.group);
-        // modify the node data
-        // this evaluates data Bindings and records changes in the UndoManager
-        model.setDataProperty(nodedata, "relationType", newSource);
-        model.setDataProperty(nodedata, "toolTipText",
-            (newSource.toUpperCase() + ": " + fromNodeTable.WorkspaceTableName + "." + fromNode.columnname + " = " + toNodeTable.WorkspaceTableName + "." + toNode.columnname));
-        e.diagram.commitTransaction("changed relation");
+        var fromNodeGroup = e.diagram.findNodeForKey(selectedLinkData.from).data.group;
+        var toNodeGroup = e.diagram.findNodeForKey(selectedLinkData.to).data.group;
+        
+        e.diagram.links.each(function (link) {
+
+            if (link.data !== null &&
+                ((e.diagram.findNodeForKey(link.data.from).data.group === fromNodeGroup && e.diagram.findNodeForKey(link.data.to).data.group === toNodeGroup) ||
+                (e.diagram.findNodeForKey(link.data.from).data.group === toNodeGroup && e.diagram.findNodeForKey(link.data.to).data.group === fromNodeGroup) )) {
+                var fromNode = model.findNodeDataForKey(link.data.from);
+                var toNode = model.findNodeDataForKey(link.data.to);
+                var fromNodeTable = model.findNodeDataForKey(fromNode.group);
+                var toNodeTable = model.findNodeDataForKey(toNode.group);
+
+                e.diagram.startTransaction("changed relation");
+                model.setDataProperty(link.data, "relationType", newSource);
+                model.setDataProperty(link.data, "toolTipText",
+                  (newSource.toUpperCase() + ": " + fromNodeTable.WorkspaceTableName + "." + fromNode.columnname + " = " + toNodeTable.WorkspaceTableName + "." + toNode.columnname));
+                e.diagram.commitTransaction("changed relation");
+            }
+        });
+        
     }
 
     ns.resetCanvas = function () {
