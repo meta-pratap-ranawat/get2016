@@ -53,19 +53,20 @@ $(document).ready(function () {
    
     myDiagramModalInputTable.addDiagramListener("LinkDrawn", function (e) {
         var link = e.subject;
+        var diagram = e.diagram;
         var linkData = link.data;
-        var fromNode = myDiagramModalInputTable.findNodeForKey(linkData.from);
-        var toNode = myDiagramModalInputTable.findNodeForKey(linkData.to);
+        var fromNode = diagram.findNodeForKey(linkData.from);
+        var toNode = diagram.findNodeForKey(linkData.to);
         var fromNodeGroup = fromNode.data.group;
         var toNodeGroup = toNode.data.group;
         var updateLink = true;
         
         myDiagramModalInputTable.links.each(function (storedLink) {
             
-            if (updateLink && storedLink.data !== null && ( (myDiagramModalInputTable.findNodeForKey(storedLink.data.from).data.group === fromNodeGroup &&
-                myDiagramModalInputTable.findNodeForKey(storedLink.data.to).data.group === toNodeGroup) ||
-                (myDiagramModalInputTable.findNodeForKey(storedLink.data.from).data.group === toNodeGroup &&
-                myDiagramModalInputTable.findNodeForKey(storedLink.data.to).data.group === fromNodeGroup))) {
+            if (updateLink && storedLink.data !== null && ( (diagram.findNodeForKey(storedLink.data.from).data.group === fromNodeGroup &&
+                diagram.findNodeForKey(storedLink.data.to).data.group === toNodeGroup) ||
+                (diagram.findNodeForKey(storedLink.data.from).data.group === toNodeGroup &&
+                diagram.findNodeForKey(storedLink.data.to).data.group === fromNodeGroup))) {
                 var relationType = storedLink.data.relationType;
                 var res,re,r;
                 if (typeof relationType !== "undefined") {
@@ -79,11 +80,20 @@ $(document).ready(function () {
                 }
                  
 
-                myDiagramModalInputTable.startTransaction("set node");
-                myDiagramModalInputTable.model.setDataProperty(linkData, "relationType", res);
-                myDiagramModalInputTable.model.setDataProperty(linkData, "toolTipText",
-                    (res.toUpperCase() + ": " + myDiagramModalInputTable.findNodeForKey(fromNodeGroup).data.WorkspaceTableName + "." + fromNode.data.columnname + " = " + myDiagramModalInputTable.findNodeForKey(toNodeGroup).data.WorkspaceTableName + "." + toNode.data.columnname));
-                myDiagramModalInputTable.commitTransaction("set node");
+                diagram.startTransaction("set link");
+                diagram.model.setDataProperty(linkData, "relationType", res);
+                
+                if ((diagram.findNodeForKey(storedLink.data.from).data.group === toNodeGroup &&
+                diagram.findNodeForKey(storedLink.data.to).data.group === fromNodeGroup)) {
+                    diagram.model.setDataProperty(linkData, "toolTipText",
+                    (res.toUpperCase() + ": " + diagram.findNodeForKey(toNodeGroup).data.WorkspaceTableName + "." + toNode.data.columnname + " = " + diagram.findNodeForKey(fromNodeGroup).data.WorkspaceTableName + "." + fromNode.data.columnname));
+                    diagram.model.setDataProperty(linkData, "to", fromNode.data.key);
+                    diagram.model.setDataProperty(linkData, "from", toNode.data.key);
+                } else {
+                    diagram.model.setDataProperty(linkData, "toolTipText",
+                    (res.toUpperCase() + ": " + diagram.findNodeForKey(fromNodeGroup).data.WorkspaceTableName + "." + fromNode.data.columnname + " = " + diagram.findNodeForKey(toNodeGroup).data.WorkspaceTableName + "." + toNode.data.columnname));
+                }
+                diagram.commitTransaction("set link");
                 updateLink = false;
             }
 
@@ -220,6 +230,7 @@ $(document).ready(function () {
 
     $("#save_mappings").on('click', function () {
         debugger;
+        console.log(JSON.parse(JSON.stringify(myDiagramModalOutputTable.model)));
         currentStep.data["modalOutputTablesMapping"] = JSON.parse(JSON.stringify(myDiagramModalOutputTable.model));
         currentStep.data["modalInputTablesMapping"] = JSON.parse(JSON.stringify(myDiagramModalInputTable.model));
         var modalOutputTable = {};
@@ -230,27 +241,62 @@ $(document).ready(function () {
             }
         });
 
+        var modalInputTables = myDiagramModalInputTable.model.nodeDataArray;
+        
+        var inputTables = [];
+        for (i = 0; i < modalInputTables.length; i++) {
+           // console.log(modalInputTables[i].category);
+            if (modalInputTables[i].category == "Table") {
+                inputTables.push(Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(JSON.parse(JSON.stringify(modalInputTables[i]))));
+            }
+            
+        }
+        currentStep.data["inputTables"] = inputTables;     // 1#inputTables to currentStep
+
+        currentStep.data.mappings = [];                    // 3# mappings
+        var modalInputMappings = myDiagramModalInputTable.model.linkDataArray;
+
+        for (i = 0; i < modalInputMappings.length; i++) {
+            var relationType = modalInputMappings[i].toolTipText;
+            var res = relationType.match(/INNERJOIN/) + relationType.match(/FULLJOIN/) + relationType.match(/RIGHTJOIN/)
+                           + relationType.match(/LEFTJOIN/) + relationType.match(/FULLOUTER/) + relationType.match(/LEFTOUTER/)
+                           + relationType.match(/RIGHTOUTER/);
+            res = res.replace(/null/g, "");
+            res = res.replace(/0/g, "");
+            
+            var start = relationType.indexOf(":")+2;
+            var end = relationType.length;
+
+            var expression = relationType.substr(start, end);
+            currentStep.data.mappings.push({
+                joinType: res,
+                joinExpression: expression
+            });
+        }
+
+        currentStep.data.columnMappings = [];                    // 4# column mappings
+        var modalOutputMappings = myDiagramModalOutputTable.model.linkDataArray;
+
+        for (i = 0; i < modalOutputMappings.length; i++) {
+
+            currentStep.data.columnMappings.push({
+                from: myDiagramModalOutputTable.findNodeForKey(modalOutputMappings[i].from).data.columnname,
+                to: myDiagramModalOutputTable.findNodeForKey(myDiagramModalOutputTable.findNodeForKey(modalOutputMappings[i].to).data.group).data.WorkspaceTableName + "." +
+                                       myDiagramModalOutputTable.findNodeForKey(modalOutputMappings[i].to).data.columnname
+            });
+        }
+
+
+    
         myDiagramModalOutputTable.nodes.each(function (node) {
             if (node.data.category == "Table" && (node.data.WorkspaceTableName != "Selected Column")) {
                 modalOutputTable = node.data;
             }
         });
-        var tableToSave = Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(JSON.parse(JSON.stringify(modalOutputTable)));
-        tableToSave.isGroup = false;
-        tableToSave.columns = [];
-        myDiagramModalOutputTable.nodes.each(function (node) {
-            if (node.data.category == "Column" && (node.data.group == tableToSave.key)) {
-                tableToSave.columns.push({
-                    name: node.data.columnname,
-                    id: node.data.columnid,
-                    seq: 200
-                });
-
-                console.log("error in deleting");
-            }
-        });
-
-
+        var outputTable = Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(JSON.parse(JSON.stringify(modalOutputTable)));
+        outputTable.isGroup = false;
+        currentStep.data["outputTable"] = outputTable;    // 2# outputTable from currentStep
+         
         canvas.startTransaction("save table");
         var model = canvas.model;
         if (((typeof currentStepOutputTable) !== "undefined")) {
@@ -265,13 +311,13 @@ $(document).ready(function () {
             model.removeNodeData(currentStepOutputTable);
             console.log("deleting link and node");
         }
-        model.addNodeData(tableToSave);
+        model.addNodeData(outputTable);
         canvas.commitTransaction("save table");
 
         canvas.startTransaction("add link");
         model.addLinkData({
             from: currentStep.data.key,
-            to: tableToSave.key
+            to: outputTable.key
         });
         canvas.commitTransaction("add link");
         $('#stepModal').modal('hide');
@@ -1943,7 +1989,7 @@ window.onresize = function () {
         resizingTool: new laneResizingTool(),
         layout: goJs(groupLayout),
         mouseDragOver: function (e) {
-            e.diagram.zoomToFit();
+           
             if (executeDragOver) {
                 executeDragOver = false;
                 var nodeCount = 0;
@@ -2199,16 +2245,7 @@ window.onresize = function () {
                      Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("leftOuter"),
                      Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("rightOuter")
             )// end Vertical Panel
-            ) //end of adornment
-              /*  goJs(go.Adornment, "Vertical",
-                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("innerJoin"),
-                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("fullJoin"),
-                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("leftJoin"),
-                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("rightJoin"),
-                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("fullOuter"),
-                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("leftOuter"),
-                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("rightOuter")
-            ) */
+            ) //end of adornment  
         },
         new go.Binding("points").makeTwoWay(),
         goJs(go.Shape,  // the highlight shape, normally transparent
@@ -2577,7 +2614,7 @@ window.onresize = function () {
             isGroup: true,
             key: table.key,
             WorkspaceTableName: table.WorkspaceTableName,
-            columns: table.Fields
+            Fields: table.Fields                //nowedit
         };
     }
 
