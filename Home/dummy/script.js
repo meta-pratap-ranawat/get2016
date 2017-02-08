@@ -171,15 +171,19 @@ $(document).ready(function () {
     };
 
     $("#existingTable").on('change', function () {
-
+        
         var tableText = this.value;
         var columnsToRemoveByKey = [];
         var linksToRemove = [];
         var tableToRemoveByKey;
+        var selectedColumnTable;
 
         myDiagramModalOutputTable.nodes.each(function (node) {
             if (node.data.category == "Table" && (node.data.WorkspaceTableName != "Selected Column") && (node.data.WorkspaceTableName != tableText)) {
                 tableToRemoveByKey = node.data.key;
+            }
+            if (node.data.category == "Table" && node.data.WorkspaceTableName == "Selected Column") {
+                selectedColumnTable = node.data;
             }
         });
 
@@ -210,6 +214,9 @@ $(document).ready(function () {
         for (i = 0; i < numberOfTables; i++) {
             if (existingTable[i].WorkspaceTableName == tableText) {
                 existingTable[i].isGroup = true;
+                var loc = go.Point.parse(selectedColumnTable.loc);
+                loc.x += 500;
+                existingTable[i].loc = go.Point.stringify(loc);
                 model.addNodeData(existingTable[i]);  // adding table
                 for (j = 0; j < existingTable[i].Fields.length; j++) {         // adding columns
                     var newNodeColumn = {};
@@ -229,8 +236,7 @@ $(document).ready(function () {
     });
 
     $("#save_mappings").on('click', function () {
-        debugger;
-        console.log(JSON.parse(JSON.stringify(myDiagramModalOutputTable.model)));
+       
         currentStep.data["modalOutputTablesMapping"] = JSON.parse(JSON.stringify(myDiagramModalOutputTable.model));
         currentStep.data["modalInputTablesMapping"] = JSON.parse(JSON.stringify(myDiagramModalInputTable.model));
         var modalOutputTable = {};
@@ -295,6 +301,7 @@ $(document).ready(function () {
         });
         var outputTable = Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(JSON.parse(JSON.stringify(modalOutputTable)));
         outputTable.isGroup = false;
+        outputTable.from = currentStep.data.key;
         currentStep.data["outputTable"] = outputTable;    // 2# outputTable from currentStep
          
         canvas.startTransaction("save table");
@@ -719,7 +726,23 @@ window.onresize = function () {
                     }
                 }
             });
+        canvas.addDiagramListener("LinkDrawn", function (e) {
 
+            var link = e.subject;
+            var diagram = e.diagram;
+            var fromNode = diagram.findNodeForKey(link.data.from);
+            var toNode = diagram.findNodeForKey(link.data.to);
+            diagram.startTransaction("addData");
+            if ( fromNode.data.category != "File") {
+                diagram.model.setDataProperty(fromNode.data, "to",toNode.data.key);
+            }
+            if (toNode.data.category != "Step" && toNode.data.category != "File") {
+                diagram.model.setDataProperty(toNode.data, "from", fromNode.data.key);
+            }
+            diagram.commitTransaction("addData");
+
+            canvasModifiedHandler(e);
+        });
         ns.globalCanvas = canvas;
         canvas.model.copiesArrays = true;
         canvas.model.copiesArrayObjects = true;
@@ -1043,26 +1066,48 @@ window.onresize = function () {
               //  makePort("B", go.Spot.Bottom, false, false)
         ));
 
-
-
         canvas.nodeTemplateMap.add("FileWithTable",
-            goJs(go.Node, "Auto", nodeStyle(),
-            {
-                click: fileNodeClicked,
-                selectionChanged: objPropertiesViewModel.updateAttributes,
-                doubleClick: fileNodeDoubleClicked,
-                reshapable: true, resizable: true, stretch: go.GraphObject.Fill, desiredSize: new go.Size(120, 120), minSize: new go.Size(20, 20)
+           goJs(go.Node, "Table", nodeStyle(),
+           {
+               click: fileNodeClicked, selectionChanged: objPropertiesViewModel.updateAttributes,
+               selectionAdorned: false, doubleClick: fileNodeDoubleClicked,//selection
+               selectionChanged: objPropertiesViewModel.updateAttributes,
+           },
+           goJs(go.Picture, shapeStyle(),
+           { row: 1, column: 1, name: "shape", desiredSize: new go.Size(120, 120), minSize: new go.Size(20, 20) }, {
+               source: CONFIG_APP_BASEURL + "/Areas/Process/Images/databasetable.png"
+           },
+            new go.Binding('width').makeTwoWay(),
+               new go.Binding('height').makeTwoWay()),
+             goJs(go.TextBlock, {
+                 row: 0, column: 1,
+                 margin: 5,
+                 editable: true,
+                 wrap: go.TextBlock.WrapFit,
+                 font: "bold 13px sans-serif",
+                 opacity: 0.75,
+                 stroke: "#404040",
+                 visible: false
+             },
+              new go.Binding("text", "from").makeTwoWay()),
+            goJs(go.TextBlock, {
+                row: 0, column: 1,
+                margin: 5,
+                editable: true,
+                wrap: go.TextBlock.WrapFit,
+                font: "bold 13px sans-serif",
+                opacity: 0.75,
+                stroke: "#404040",
+                visible: false
             },
-            goJs(go.Picture, {
-                source: CONFIG_APP_BASEURL + "/Areas/Process/Images/databasetable.png"
-            }),
-             new go.Binding('width').makeTwoWay(),
-                new go.Binding('height').makeTwoWay(),
-                 makePort("T", go.Spot.Top, true, false),
-                makePort("L", go.Spot.Left, true, false),
-                makePort("R", go.Spot.Right, true, false),
-                makePort("B", go.Spot.Bottom, true, false)
-        ));
+              new go.Binding("text", "to").makeTwoWay()),
+                makePort("T", go.Spot.Top, true, true),
+              makePort("L", go.Spot.Left, true, true),
+              makePort("R", go.Spot.Right, true, true),
+              makePort("B", go.Spot.Bottom, true, true)
+       ));
+
+    
 
         canvas.nodeTemplateMap.add("Table",
              goJs(go.Node, "Table", nodeStyle(), {
@@ -1083,6 +1128,28 @@ window.onresize = function () {
                        row: 0, column: 0, font: "bold 11pt Helvetica, Arial, sans-serif", stroke: "#000000", maxSize: new go.Size(120, NaN), cursor: "move"
                    },
                    new go.Binding("text", "WorkspaceTableName")),
+                 goJs(go.TextBlock, {
+                     row: 0, column: 1,
+                     margin: 5,
+                     editable: true,
+                     wrap: go.TextBlock.WrapFit,
+                     font: "bold 13px sans-serif",
+                     opacity: 0.75,
+                     stroke: "#404040",
+                     visible: false
+                 },
+              new go.Binding("text", "from").makeTwoWay()),
+            goJs(go.TextBlock, {
+                row: 0, column: 1,
+                margin: 5,
+                editable: true,
+                wrap: go.TextBlock.WrapFit,
+                font: "bold 13px sans-serif",
+                opacity: 0.75,
+                stroke: "#404040",
+                visible: false
+            },
+              new go.Binding("text", "to").makeTwoWay()),
                     goJs(go.TextBlock, "Description",
                    {
                        row: 1, column: 0,
@@ -1914,6 +1981,8 @@ window.onresize = function () {
                         tablesPalette.nodes.each(function (node) {
                             if (add && n.data.OutputTableName == node.data.WorkspaceTableName) {
                                 node.data.key = n.data.key;
+                                node.data.from = n.data.key;
+                                node.data.to = n.data.to;
                                 tablesToCurrentStep.push(node.data); add = false;
                             }
                         });
@@ -1985,7 +2054,7 @@ window.onresize = function () {
         //doubleClick: showJobModal,
         initialDocumentSpot: go.Spot.Center,
         initialViewportSpot: go.Spot.Center,
-        initialContentAlignment: go.Spot.Center,
+        initialContentAlignment: go.Spot.TopLeft,
         resizingTool: new laneResizingTool(),
         layout: goJs(groupLayout),
         mouseDragOver: function (e) {
@@ -2061,6 +2130,7 @@ window.onresize = function () {
                     })
             },
             new go.Binding("background", "isHighlighted", function (h) { return h ? "rgba(255,0,0,0.2)" : "transparent"; }).ofObject(),
+            new go.Binding("location", "loc", go.Point.parse).makeTwoWay(go.Point.stringify),
             goJs(go.Shape, "Rectangle",
               { fill: null, stroke: "#ccc" }),
             goJs(go.Panel, "Vertical",  // title above Placeholder
@@ -2614,7 +2684,9 @@ window.onresize = function () {
             isGroup: true,
             key: table.key,
             WorkspaceTableName: table.WorkspaceTableName,
-            Fields: table.Fields                //nowedit
+            Fields: table.Fields,                //nowedit
+            to: table.to,
+            from: table.from
         };
     }
 
@@ -2646,6 +2718,7 @@ window.onresize = function () {
                 columnid: "00",     //%%edit             nothing remove this 
                 columntype: "",                                                 //%%edit             nothing remove this 
                 group: TableInJson[i].key
+
             };
             tables.push(defaultColumn);
             Array.prototype.push.apply(tables, Ciel.Process.ProcessDesign.CreateJob.getColumnsFromTable(TableInJson[i]));
