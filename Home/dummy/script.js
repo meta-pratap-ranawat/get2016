@@ -30,7 +30,6 @@ $(document).ready(function () {
     myDiagramModalInputTable = Ciel.Process.ProcessDesign.CreateJob.CreateCanvas("myDiagramForModalInputTableDiv");
     myDiagramModalOutputTable = Ciel.Process.ProcessDesign.CreateJob.CreateCanvas("myDiagramForModalOutputTableDiv");
 
-
     var tool = myDiagramModalInputTable.toolManager.linkingTool;
     tool.isValidFrom = function (fromnode, fromport) {
 
@@ -50,7 +49,8 @@ $(document).ready(function () {
         return true;
 
     }
-   
+
+
     myDiagramModalInputTable.addDiagramListener("LinkDrawn", function (e) {
         var link = e.subject;
         var diagram = e.diagram;
@@ -60,15 +60,15 @@ $(document).ready(function () {
         var fromNodeGroup = fromNode.data.group;
         var toNodeGroup = toNode.data.group;
         var updateLink = true;
-        
+
         myDiagramModalInputTable.links.each(function (storedLink) {
-            
-            if (updateLink && storedLink.data !== null && ( (diagram.findNodeForKey(storedLink.data.from).data.group === fromNodeGroup &&
+
+            if (updateLink && storedLink.data !== null && ((diagram.findNodeForKey(storedLink.data.from).data.group === fromNodeGroup &&
                 diagram.findNodeForKey(storedLink.data.to).data.group === toNodeGroup) ||
                 (diagram.findNodeForKey(storedLink.data.from).data.group === toNodeGroup &&
                 diagram.findNodeForKey(storedLink.data.to).data.group === fromNodeGroup))) {
                 var relationType = storedLink.data.relationType;
-                var res,re,r;
+                var res, re, r;
                 if (typeof relationType !== "undefined") {
                     res = relationType.match(/innerJoin/) + relationType.match(/fullJoin/) + relationType.match(/rightJoin/)
                             + relationType.match(/leftJoin/) + relationType.match(/fullOuter/) + relationType.match(/leftOuter/)
@@ -78,11 +78,11 @@ $(document).ready(function () {
                 } else {
                     res = "innerJoin";
                 }
-                 
+
 
                 diagram.startTransaction("set link");
                 diagram.model.setDataProperty(linkData, "relationType", res);
-                
+
                 if ((diagram.findNodeForKey(storedLink.data.from).data.group === toNodeGroup &&
                 diagram.findNodeForKey(storedLink.data.to).data.group === fromNodeGroup)) {
                     diagram.model.setDataProperty(linkData, "toolTipText",
@@ -98,9 +98,49 @@ $(document).ready(function () {
             }
 
         });
-       // 
+        // 
     });
-    
+
+    /* myDiagramModalInputTable.addDiagramListener("LinkDrawn", function (e) {
+         var link = e.subject;
+         var linkData = link.data;
+         var fromNode = myDiagramModalInputTable.findNodeForKey(linkData.from);
+         var toNode = myDiagramModalInputTable.findNodeForKey(linkData.to);
+         var fromNodeGroup = fromNode.data.group;
+         var toNodeGroup = toNode.data.group;
+         var updateLink = true;
+ 
+         myDiagramModalInputTable.links.each(function (storedLink) {
+ 
+             if (updateLink && storedLink.data !== null && ((myDiagramModalInputTable.findNodeForKey(storedLink.data.from).data.group === fromNodeGroup &&
+                 myDiagramModalInputTable.findNodeForKey(storedLink.data.to).data.group === toNodeGroup) ||
+                 (myDiagramModalInputTable.findNodeForKey(storedLink.data.from).data.group === toNodeGroup &&
+                 myDiagramModalInputTable.findNodeForKey(storedLink.data.to).data.group === fromNodeGroup))) {
+                 var relationType = storedLink.data.relationType;
+                 var res, re, r;
+                 if (typeof relationType !== "undefined") {
+                     res = relationType.match(/innerJoin/) + relationType.match(/fullJoin/) + relationType.match(/rightJoin/)
+                             + relationType.match(/leftJoin/) + relationType.match(/fullOuter/) + relationType.match(/leftOuter/)
+                             + relationType.match(/rightOuter/);
+                     res = res.replace(/null/g, "");
+                     res = res.replace(/0/g, "");
+                 } else {
+                     res = "innerJoin";
+                 }
+ 
+ 
+                 myDiagramModalInputTable.startTransaction("set node");
+                 myDiagramModalInputTable.model.setDataProperty(linkData, "relationType", res);
+                 myDiagramModalInputTable.model.setDataProperty(linkData, "toolTipText",
+                     (res.toUpperCase() + ": " + myDiagramModalInputTable.findNodeForKey(fromNodeGroup).data.WorkspaceTableName + "." + fromNode.data.columnname + " = " + myDiagramModalInputTable.findNodeForKey(toNodeGroup).data.WorkspaceTableName + "." + toNode.data.columnname));
+                 myDiagramModalInputTable.commitTransaction("set node");
+                 updateLink = false;
+             }
+ 
+         });
+         // 
+     });    */
+
 
     $("#dock .undock").click(function () {
         $(this).find("ul.free").animate({ left: "-240px" }, 200);
@@ -132,8 +172,6 @@ $(document).ready(function () {
         $("body").removeClass('editingRight');
     });
 
-    //Ciel.Process.ProcessDesign.CreateJob.setPaletteHeight();
-
     $('#file-modal').on('shown.bs.modal', function () {
         $('#file-general-tab').tab('show');
         $('#process-filemodal-general').removeClass('active').addClass('active');
@@ -150,6 +188,13 @@ $(document).ready(function () {
     $('#file-modal').on('hidden.bs.modal', function () {
         go.Diagram.prototype.doFocus.call(Ciel.Process.ProcessDesign.CreateJob.globalCanvas);
         Ciel.Process.ProcessDesign.CreateJob.updateDiagram();
+    });
+
+    $('.nav-tabs a[href="#process-filemodal-mapping"]').on('show.bs.tab', function (event) {
+        //load file columns' heading
+        $('#process-filemodal-mapping .mapping-loader').show();
+        $('#process-filemodal-mapping .row').hide();
+        Ciel.Process.ProcessDesign.CreateJob.loadFileColumns();
     });
 
     ko.revertibleObservable = function (initialValue) {
@@ -171,19 +216,29 @@ $(document).ready(function () {
     };
 
     $("#existingTable").on('change', function () {
-        
+        var tableName = "";
+        var selectedColumnTable;
+        myDiagramModalOutputTable.nodes.each(function (node) {
+            if (node.data.category == "Table" && (node.data.WorkspaceTableName != "Selected Column") && (node.data.WorkspaceTableName != tableText)) {
+                tableToRemoveByKey = node.data.key;
+                tableName = node.data.WorkspaceTableName;
+            }
+            if (node.data.category == "Table" && node.data.WorkspaceTableName == "Selected Column") {
+                selectedColumnTable = node.data;
+            }
+        });
+        if (confirm('On changing the table selection all the mapping will be lost') === false) {
+            $("#existingTable").val(tableName);
+            return;
+        }
         var tableText = this.value;
         var columnsToRemoveByKey = [];
         var linksToRemove = [];
         var tableToRemoveByKey;
-        var selectedColumnTable;
 
         myDiagramModalOutputTable.nodes.each(function (node) {
             if (node.data.category == "Table" && (node.data.WorkspaceTableName != "Selected Column") && (node.data.WorkspaceTableName != tableText)) {
                 tableToRemoveByKey = node.data.key;
-            }
-            if (node.data.category == "Table" && node.data.WorkspaceTableName == "Selected Column") {
-                selectedColumnTable = node.data;
             }
         });
 
@@ -232,13 +287,12 @@ $(document).ready(function () {
 
         myDiagramModalOutputTable.model = model;
         myDiagramModalOutputTable.commitTransaction("change table");
-       
+
     });
 
     $("#save_mappings").on('click', function () {
-       
-        currentStep.data["modalOutputTablesMapping"] = JSON.parse(JSON.stringify(myDiagramModalOutputTable.model));
-        currentStep.data["modalInputTablesMapping"] = JSON.parse(JSON.stringify(myDiagramModalInputTable.model));
+        currentStep.data.modalOutputTablesMapping = JSON.parse(myDiagramModalOutputTable.model.toJSON());
+        currentStep.data.modalInputTablesMapping = JSON.parse(myDiagramModalInputTable.model.toJSON());
         var modalOutputTable = {};
         var currentStepOutputTable;
         currentStep.findNodesOutOf().each(function (n) {
@@ -247,17 +301,43 @@ $(document).ready(function () {
             }
         });
 
+        myDiagramModalOutputTable.nodes.each(function (node) {
+            if (node.data.category == "Table" && (node.data.WorkspaceTableName != "Selected Column")) {
+                modalOutputTable = node.data;
+            }
+        });
+
         var modalInputTables = myDiagramModalInputTable.model.nodeDataArray;
-        
         var inputTables = [];
         for (i = 0; i < modalInputTables.length; i++) {
-           // console.log(modalInputTables[i].category);
+            // console.log(modalInputTables[i].category);
             if (modalInputTables[i].category == "Table") {
                 inputTables.push(Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(JSON.parse(JSON.stringify(modalInputTables[i]))));
             }
-            
         }
-        currentStep.data["inputTables"] = inputTables;     // 1#inputTables to currentStep
+        currentStep.data["inputTables"] = inputTables;
+
+
+
+        /*  var tableToSave = Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(JSON.parse(JSON.stringify(modalOutputTable)));
+          tableToSave.isGroup = false;
+          tableToSave.columns = [];
+          myDiagramModalOutputTable.nodes.each(function (node) {
+              if (node.data.category == "Column" && (node.data.group == tableToSave.key)) {
+                  tableToSave.columns.push({
+                      name: node.data.columnname,
+                      id: node.data.columnid,
+                      seq: 200
+                  });
+              }
+          }); */
+
+        var outputTable = Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(JSON.parse(JSON.stringify(modalOutputTable)));
+        outputTable.isGroup = false;
+        outputTable.from = currentStep.data.key;
+        currentStep.data["outputTable"] = outputTable;
+        // 2# outputTable from currentStep
+
 
         currentStep.data.mappings = [];                    // 3# mappings
         var modalInputMappings = myDiagramModalInputTable.model.linkDataArray;
@@ -269,8 +349,8 @@ $(document).ready(function () {
                            + relationType.match(/RIGHTOUTER/);
             res = res.replace(/null/g, "");
             res = res.replace(/0/g, "");
-            
-            var start = relationType.indexOf(":")+2;
+
+            var start = relationType.indexOf(":") + 2;
             var end = relationType.length;
 
             var expression = relationType.substr(start, end);
@@ -280,30 +360,18 @@ $(document).ready(function () {
             });
         }
 
-        currentStep.data.columnMappings = [];                    // 4# column mappings
+        currentStep.data.ColumnMappings = [];                    // 4# column mappings
         var modalOutputMappings = myDiagramModalOutputTable.model.linkDataArray;
 
         for (i = 0; i < modalOutputMappings.length; i++) {
 
-            currentStep.data.columnMappings.push({
-                from: myDiagramModalOutputTable.findNodeForKey(modalOutputMappings[i].from).data.columnname,
-                to: myDiagramModalOutputTable.findNodeForKey(myDiagramModalOutputTable.findNodeForKey(modalOutputMappings[i].to).data.group).data.WorkspaceTableName + "." +
+            currentStep.data.ColumnMappings.push({
+                sourceColumnName: myDiagramModalOutputTable.findNodeForKey(modalOutputMappings[i].from).data.columnname,
+                targetColumnName: myDiagramModalOutputTable.findNodeForKey(myDiagramModalOutputTable.findNodeForKey(modalOutputMappings[i].to).data.group).data.WorkspaceTableName + "." +
                                        myDiagramModalOutputTable.findNodeForKey(modalOutputMappings[i].to).data.columnname
             });
         }
 
-
-    
-        myDiagramModalOutputTable.nodes.each(function (node) {
-            if (node.data.category == "Table" && (node.data.WorkspaceTableName != "Selected Column")) {
-                modalOutputTable = node.data;
-            }
-        });
-        var outputTable = Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(JSON.parse(JSON.stringify(modalOutputTable)));
-        outputTable.isGroup = false;
-        outputTable.from = currentStep.data.key;
-        currentStep.data["outputTable"] = outputTable;    // 2# outputTable from currentStep
-         
         canvas.startTransaction("save table");
         var model = canvas.model;
         if (((typeof currentStepOutputTable) !== "undefined")) {
@@ -315,29 +383,34 @@ $(document).ready(function () {
                 }
             });
             model.removeLinkData(linkToRemove);
+            outputTable.loc = currentStepOutputTable.loc;
             model.removeNodeData(currentStepOutputTable);
-            console.log("deleting link and node");
         }
-        model.addNodeData(outputTable);
-        canvas.commitTransaction("save table");
+        else {
+            // outputTable.loc =cure
+        }
 
-        canvas.startTransaction("add link");
-        model.addLinkData({
-            from: currentStep.data.key,
-            to: outputTable.key
-        });
-        canvas.commitTransaction("add link");
+        if (outputTable.WorkspaceTableName !== undefined) {
+            model.addNodeData(outputTable);
+
+            canvas.commitTransaction("save table");
+
+            canvas.startTransaction("add link");
+            model.addLinkData({
+                from: currentStep.data.key,
+                to: outputTable.key
+            });
+            canvas.commitTransaction("add link");
+        }
         $('#stepModal').modal('hide');
     });
+
+    Ciel.Process.ProcessDesign.CreateJob.setPaletteHeight();
+
+    $(window).resize(function () {
+        Ciel.Process.ProcessDesign.CreateJob.setPaletteHeight();
+    });
 });
-
-window.onload = function () {
-    Ciel.Process.ProcessDesign.CreateJob.setPaletteHeight();
-}
-
-window.onresize = function () {
-    Ciel.Process.ProcessDesign.CreateJob.setPaletteHeight();
-}
 
 (function (ns) {
     var filesPalette;
@@ -365,14 +438,29 @@ window.onresize = function () {
     }
 
     ns.setPaletteHeight = function () {
-        var filesPaletteDiv = document.getElementById('filesPaletteDiv');
-        var stepsPaletteDiv = document.getElementById('stepsPaletteDiv');
-        var tablesPaletteDiv = document.getElementById('tablesPaletteDiv');
-        if (filesPaletteDiv && stepsPaletteDiv && tablesPaletteDiv) {
-            filesPaletteDiv.style.height = (getWindowHeight() - 230) + "px";
-            stepsPaletteDiv.style.height = (getWindowHeight() - 230) + "px";
-            tablesPaletteDiv.style.height = (getWindowHeight() - 230) + "px";
-        }
+        var windowHeight = getWindowHeight();
+        $('#filesPaletteDiv').css("height", (windowHeight - 230));
+        $('#stepsPaletteDiv').css("height", (windowHeight - 230));
+        $('#tablesPaletteDiv').css("height", (windowHeight - 230));
+        $('#canvasDiv').css("height", (windowHeight - 150));
+    }
+
+    ns.loadFileColumns = function () {
+        Ciel.Process.Api.GetFileColumns(modelData.node.data.FileType, modelData.node.data.FilePath, function (columnsList) {
+            if (modelData.isColumnHeadingPresent() === true) {
+                modelData.fileColumns(columnsList);
+            }
+            else {
+                var tempCols = [];
+                for (var i = 0; i < columnsList.length; i++) {
+                    var obj = columnsList[i];
+                    tempCols.push(new fileColumn(obj.id, 'Column ' + (i + 1), obj.seqNo));
+                }
+                modelData.fileColumns(tempCols);
+            }
+            $('#process-filemodal-mapping .mapping-loader').hide();
+            $('#process-filemodal-mapping .row').show();
+        });
     }
 
     var laneResizingTool = function () {
@@ -474,13 +562,14 @@ window.onresize = function () {
                            goJs(go.Shape, "Rectangle",
                                 {
 
-                                    stroke: null, strokeWidth: 1,
+                                    stroke: null, strokeWidth: 0,
                                     desiredSize: new go.Size(10, 20),
                                     fill: "transparent",
                                     portId: name,
                                     fromSpot: spot, toSpot: spot,
-                                    fromLinkable: output, toLinkable: input, cursor: "pointer"
-                                    
+                                    fromLinkable: output, toLinkable: input, cursor: "pointer",
+                                    toMaxLinks: 1,
+                                    fromMaxLinks: 1
                                 }
 
                             ),
@@ -494,8 +583,9 @@ window.onresize = function () {
                                     alignmentFocus: go.Spot.Top.opposite(),// align the port on the main Shape
                                     portId: name,
                                     fromSpot: spot, toSpot: spot,
-                                    fromLinkable: output, toLinkable: input,
-                                    cursor: "pointer"
+                                    fromLinkable: output, toLinkable: input, cursor: "pointer",
+                                    toMaxLinks: 1,
+                                    fromMaxLinks: 1
                                 }
 
                             )
@@ -513,8 +603,9 @@ window.onresize = function () {
                              fill: "transparent",
                              portId: name,
                              fromSpot: spot, toSpot: spot,
-                             fromLinkable: output, toLinkable: input, cursor: "pointer"
-                             
+                             fromLinkable: output, toLinkable: input, cursor: "pointer",
+                             toMaxLinks: 1,
+                             fromMaxLinks: 1
                          }
                      ),
                        goJs(go.Shape, "Rectangle",
@@ -526,8 +617,9 @@ window.onresize = function () {
                              alignment: go.Spot.Top, alignmentFocus: go.Spot.Top,
                              alignmentFocus: go.Spot.Top.opposite(),// align the port on the main Shape
                              fromSpot: spot, toSpot: spot,
-                             fromLinkable: output, toLinkable: input, cursor: "pointer"
-                            
+                             fromLinkable: output, toLinkable: input, cursor: "pointer",
+                             toMaxLinks: 1,
+                             fromMaxLinks: 1
                          }
                      )
             )  // end itemTemplate
@@ -646,6 +738,12 @@ window.onresize = function () {
         }
 
         self.isReadOnly = isReadOnly;
+
+        self.attributeValue.subscribe(function (newValue) {
+            if (self.attributeName === "Column Separator" || self.attributeName === "Row Separator" || self.attributeName === "Column Heading in first data row" || self.attributeName === "Header Rows") {
+                modelData.removeAllMapppings();
+            }
+        });
     }
 
     var outputTableColumn = function (columnId, columnName, columnType, isUsed) {
@@ -669,6 +767,9 @@ window.onresize = function () {
         canvas =
           goJs(go.Diagram, "canvasDiv",
             {
+                padding: 0,
+                scrollMode: go.Diagram.InfiniteScroll,
+                initialPosition: new go.Point(0, 0),
                 initialDocumentSpot: go.Spot.Center,
                 initialViewportSpot: go.Spot.Center,
                 initialContentAlignment: go.Spot.Center,
@@ -707,16 +808,15 @@ window.onresize = function () {
                 "linkingTool.isUnconnectedLinkValid": false,
                 "relinkingTool.isUnconnectedLinkValid": false,
                 "linkingTool.linkValidation": function (from, fromport, to, toport, link) {
-
-                    if (from.findLinksBetween(to, null, null).count == 1) return false;
+                    if (from.findLinksBetween(to, null, null).count == 1) {
+                        return false;
+                    }
                     if (from.data.category === "Step") {
-                        if (from.findNodesOutOf().count === 1)
-                        {
+                        if (from.findNodesOutOf().count === 1) {
                             return false;
                         }
                         else {
-                            if (from.findNodesOutOf().count === 0 && to.data.category !== "Table")
-                            {
+                            if (from.findNodesOutOf().count === 0 && to.data.category !== "Table") {
                                 return false;
                             }
                             return true;
@@ -726,6 +826,7 @@ window.onresize = function () {
                     }
                 }
             });
+
         canvas.addDiagramListener("LinkDrawn", function (e) {
 
             var link = e.subject;
@@ -733,15 +834,34 @@ window.onresize = function () {
             var fromNode = diagram.findNodeForKey(link.data.from);
             var toNode = diagram.findNodeForKey(link.data.to);
             diagram.startTransaction("addData");
-            if ( fromNode.data.category != "File") {
-                diagram.model.setDataProperty(fromNode.data, "to",toNode.data.key);
+            if (fromNode.data.category != "File") {
+                diagram.model.setDataProperty(fromNode.data, "to", toNode.data.key);
             }
             if (toNode.data.category != "Step" && toNode.data.category != "File") {
                 diagram.model.setDataProperty(toNode.data, "from", fromNode.data.key);
             }
             diagram.commitTransaction("addData");
 
-            canvasModifiedHandler(e);
+        });
+
+        canvas.addDiagramListener("SelectionDeleting", function (e) {
+            debugger;
+            var diagram = e.diagram;
+            e.subject.each(function (node) {
+                node.findNodesOutOf().each(function (n) {
+                    diagram.startTransaction("deleteTable");
+                    if (n.data.category === "Step" && n.data.text === "Join") {
+                        diagram.model.setDataProperty(n.data, "modalOutputTablesMapping", undefined);
+                        diagram.model.setDataProperty(n.data, "modalInputTablesMapping", undefined);
+                       // node.data.modalOutputTablesMapping = undefined;
+                       // node.data.modalInputTablesMapping = undefined;
+                    }
+                    diagram.commitTransaction("deleteTable");
+                })
+            });
+
+          
+
         });
         ns.globalCanvas = canvas;
         canvas.model.copiesArrays = true;
@@ -859,11 +979,11 @@ window.onresize = function () {
         filesPalette =
           goJs(go.Palette, "filesPaletteDiv",  // must name or refer to the DIV HTML element
             {
-                "animationManager.duration": 1, 
+                "animationManager.duration": 1,
                 initialScale: 0.6,
                 model: new go.GraphLinksModel(),
                 positionComputation: function computeIntegralPosition(diagram, pt) { // to scroll to end using the scrollbar
-                                        return new go.Point(Math.ceil(pt.x), Math.ceil(pt.y));
+                    return new go.Point(Math.ceil(pt.x), Math.ceil(pt.y));
                 },
                 layout: goJs(go.GridLayout, { comparer: fileCompareFunction }) // to order the files in palette acording to FileName
             });
@@ -873,7 +993,7 @@ window.onresize = function () {
         stepsPalette =
           goJs(go.Palette, "stepsPaletteDiv",  // must name or refer to the DIV HTML element
             {
-                "animationManager.duration": 1, 
+                "animationManager.duration": 1,
                 initialScale: 0.6,
                 model: new go.GraphLinksModel(),
                 positionComputation: function computeIntegralPosition(diagram, pt) { // to scroll to end using the scrollbar
@@ -887,12 +1007,12 @@ window.onresize = function () {
         tablesPalette =
           goJs(go.Palette, "tablesPaletteDiv",  // must name or refer to the DIV HTML element
             {
-                "animationManager.duration": 1, 
+                "animationManager.duration": 1,
                 initialScale: 0.6,
                 model: new go.GraphLinksModel(),
                 positionComputation: function computeIntegralPosition(diagram, pt) { // to scroll to end using the scrollbar
                     return new go.Point(Math.ceil(pt.x), Math.ceil(pt.y));
-                }, 
+                },
                 layout: goJs(go.GridLayout, { comparer: tableCompareFunction }) // to order the tables in palette acording to WorkspaceTableName
             });
         tablesPalette.toolManager.hoverDelay = 100;
@@ -1060,54 +1180,54 @@ window.onresize = function () {
                 },
                 new go.Binding('width').makeTwoWay(),
                 new go.Binding('height').makeTwoWay())
-               // makePort("T", go.Spot.Top, false, false),
-              //  makePort("L", go.Spot.Left, false, false),
-              //  makePort("R", go.Spot.Right, false, false),
-              //  makePort("B", go.Spot.Bottom, false, false)
+              //  makePort("T", go.Spot.Top, true, true),
+              //  makePort("L", go.Spot.Left, true, true),
+              //  makePort("R", go.Spot.Right, true, true),
+              //  makePort("B", go.Spot.Bottom, true, true)
         ));
 
-        canvas.nodeTemplateMap.add("FileWithTable",
-           goJs(go.Node, "Table", nodeStyle(),
-           {
-               click: fileNodeClicked, selectionChanged: objPropertiesViewModel.updateAttributes,
-               selectionAdorned: false, doubleClick: fileNodeDoubleClicked,//selection
-               selectionChanged: objPropertiesViewModel.updateAttributes,
-           },
-           goJs(go.Picture, shapeStyle(),
-           { row: 1, column: 1, name: "shape", desiredSize: new go.Size(120, 120), minSize: new go.Size(20, 20) }, {
-               source: CONFIG_APP_BASEURL + "/Areas/Process/Images/databasetable.png"
-           },
-            new go.Binding('width').makeTwoWay(),
-               new go.Binding('height').makeTwoWay()),
-             goJs(go.TextBlock, {
-                 row: 0, column: 1,
-                 margin: 5,
-                 editable: true,
-                 wrap: go.TextBlock.WrapFit,
-                 font: "bold 13px sans-serif",
-                 opacity: 0.75,
-                 stroke: "#404040",
-                 visible: false
-             },
-              new go.Binding("text", "from").makeTwoWay()),
-            goJs(go.TextBlock, {
-                row: 0, column: 1,
-                margin: 5,
-                editable: true,
-                wrap: go.TextBlock.WrapFit,
-                font: "bold 13px sans-serif",
-                opacity: 0.75,
-                stroke: "#404040",
-                visible: false
-            },
-              new go.Binding("text", "to").makeTwoWay()),
-                makePort("T", go.Spot.Top, true, true),
-              makePort("L", go.Spot.Left, true, true),
-              makePort("R", go.Spot.Right, true, true),
-              makePort("B", go.Spot.Bottom, true, true)
-       ));
 
-    
+
+        canvas.nodeTemplateMap.add("FileWithTable",
+          goJs(go.Node, "Table", nodeStyle(),
+          {
+              click: fileNodeClicked, selectionChanged: objPropertiesViewModel.updateAttributes,
+              selectionAdorned: false, doubleClick: fileNodeDoubleClicked,//selection
+              selectionChanged: objPropertiesViewModel.updateAttributes,
+          },
+          goJs(go.Picture, shapeStyle(),
+          { row: 1, column: 1, name: "shape", desiredSize: new go.Size(120, 120), minSize: new go.Size(20, 20) }, {
+              source: CONFIG_APP_BASEURL + "/Areas/Process/Images/databasetable.png"
+          },
+           new go.Binding('width').makeTwoWay(),
+              new go.Binding('height').makeTwoWay()),
+                goJs(go.TextBlock, {
+                    row: 0, column: 1,
+                    margin: 5,
+                    editable: true,
+                    wrap: go.TextBlock.WrapFit,
+                    font: "bold 13px sans-serif",
+                    opacity: 0.75,
+                    stroke: "#404040",
+                    visible: false
+                },
+             new go.Binding("text", "from").makeTwoWay()),
+           goJs(go.TextBlock, {
+               row: 0, column: 1,
+               margin: 5,
+               editable: true,
+               wrap: go.TextBlock.WrapFit,
+               font: "bold 13px sans-serif",
+               opacity: 0.75,
+               stroke: "#404040",
+               visible: false
+           },
+             new go.Binding("text", "to").makeTwoWay()),
+               makePort("T", go.Spot.Top, true, true),
+             makePort("L", go.Spot.Left, true, true),
+             makePort("R", go.Spot.Right, true, true),
+             makePort("B", go.Spot.Bottom, true, true)
+      ));
 
         canvas.nodeTemplateMap.add("Table",
              goJs(go.Node, "Table", nodeStyle(), {
@@ -1128,28 +1248,6 @@ window.onresize = function () {
                        row: 0, column: 0, font: "bold 11pt Helvetica, Arial, sans-serif", stroke: "#000000", maxSize: new go.Size(120, NaN), cursor: "move"
                    },
                    new go.Binding("text", "WorkspaceTableName")),
-                 goJs(go.TextBlock, {
-                     row: 0, column: 1,
-                     margin: 5,
-                     editable: true,
-                     wrap: go.TextBlock.WrapFit,
-                     font: "bold 13px sans-serif",
-                     opacity: 0.75,
-                     stroke: "#404040",
-                     visible: false
-                 },
-              new go.Binding("text", "from").makeTwoWay()),
-            goJs(go.TextBlock, {
-                row: 0, column: 1,
-                margin: 5,
-                editable: true,
-                wrap: go.TextBlock.WrapFit,
-                font: "bold 13px sans-serif",
-                opacity: 0.75,
-                stroke: "#404040",
-                visible: false
-            },
-              new go.Binding("text", "to").makeTwoWay()),
                     goJs(go.TextBlock, "Description",
                    {
                        row: 1, column: 0,
@@ -1165,7 +1263,28 @@ window.onresize = function () {
                    },
                    new go.Binding('text', "description").makeTwoWay())
                    ),
-
+                goJs(go.TextBlock, {
+                    row: 0, column: 1,
+                    margin: 5,
+                    editable: true,
+                    wrap: go.TextBlock.WrapFit,
+                    font: "bold 13px sans-serif",
+                    opacity: 0.75,
+                    stroke: "#404040",
+                    visible: false
+                },
+                 new go.Binding("text", "from").makeTwoWay()),
+               goJs(go.TextBlock, {
+                   row: 0, column: 1,
+                   margin: 5,
+                   editable: true,
+                   wrap: go.TextBlock.WrapFit,
+                   font: "bold 13px sans-serif",
+                   opacity: 0.75,
+                   stroke: "#404040",
+                   visible: false
+               },
+             new go.Binding("text", "to").makeTwoWay()),
 
                makePort("T", go.Spot.Top, true, true),
                makePort("L", go.Spot.Left, true, true),
@@ -1178,7 +1297,6 @@ window.onresize = function () {
                   {
                       doubleClick: stepClicked,
                       selectionAdorned: false
-                      
                   },
                goJs(go.Shape, "SquareArrow", shapeStyle(),
                   {
@@ -1211,10 +1329,10 @@ window.onresize = function () {
                   new go.Binding('text', "description").makeTwoWay())
               ),
               //// four named ports, one on each side:
-              makePort("T", go.Spot.Top, false, false),
+             // makePort("T", go.Spot.Top, false, false),
               makePort("L", go.Spot.Left, false, true),
-              makePort("R", go.Spot.Right, true, false),
-              makePort("B", go.Spot.Bottom, false, false)
+              makePort("R", go.Spot.Right, true, false)
+             // makePort("B", go.Spot.Bottom, false, false)
 
      ));
         //Load nodes in the palette
@@ -1263,13 +1381,28 @@ window.onresize = function () {
         });
     }
 
+    var tableModel = function () {
+        var self = this;
+        self.node = {};
+        self.TableName = ko.observable('');
+        self.TableType = ko.observable('');
+        self.Fields = ko.observableArray([]);
+        self.UpdateTableModel = function (node) {
+            self.TableName(node.data.WorkspaceTableName);
+            self.TableType(node.data.TableType);
+            self.Fields(node.data.Fields);
+        }
+    }
+
+
     var newFileModel = function () {
         var self = this;
         self.node = {};
         self.isNewOutputTable = ko.observable(false);
         self.newOutputTableName = ko.observable();
         self.isTempTable = ko.observable(false);
-        self.modalLoaded = ko.observable();
+        self.isColumnHeadingPresent = ko.observable();
+
         self.selectedOutputTableName = ko.observable();
         self.selectedOutputTableName.subscribe(function (newValue) {
             if (newValue === "New Table") {
@@ -1282,44 +1415,16 @@ window.onresize = function () {
             });
             self.removeAllMapppings();
         });
+
+
         self.fileName = ko.observable();
         self.columnSeparators = ko.observableArray([]);
         self.rowSeparators = ko.observableArray([]);
-        self.fileColumns = ko.computed(function () {
-            self.modalLoaded();
-            var check;
-            if (self.node.data != undefined) {
-                ko.utils.arrayForEach(self.fileAttributes(), function (item) {
-                    if (item.attributeName === 'Is Column Heading Present') {
-                        check = item.attributeValue();
-                    }
-                });
-
-                self.columnMappings.removeAll();
-
-                self.fileColumn = [];
-                if (check == true) {
-
-                    for (var i = 0; i < self.node.data.Columns.length; i++) {
-                        var obj = self.node.data.Columns[i];
-                        self.fileColumn.push(new fileColumn(obj.id, obj.name, obj.seqNo));
-                    }
-                    return self.fileColumn;
-                }
-                else {
-                    for (var i = 0; i < self.node.data.Columns.length; i++) {
-                        var obj = self.node.data.Columns[i];
-                        self.fileColumn.push(new fileColumn(obj.id, 'Column' + i, obj.seqNo));
-                    }
-                    return self.fileColumn;
-                }
-            }
-            else {
-
-                return null;
-            }
-        })
+        self.fileColumns = ko.observableArray([]);
         self.fileAttributes = ko.observableArray([]);
+        //self.isColumnHeadingPresent.subscribe(function (newValue) {
+        //    self.removeAllMapppings();
+        //});
         self.outputTables = ko.observableArray([]);
 
         self.columnMappings = ko.observableArray();
@@ -1390,8 +1495,8 @@ window.onresize = function () {
             var tempColumnMappings = [];
             var tempFileAttributes = JSON.parse(JSON.stringify(node.data.FileAttributes));
             node.diagram.model.startTransaction("set file properties");
-            node.diagram.model.setDataProperty(node.diagram.model.findNodeDataForKey(node.data.key), "OutputTableName", self.selectedOutputTableName());
-            node.diagram.model.setDataProperty(node.diagram.model.findNodeDataForKey(node.data.key), "IsOutputTableTemporary", self.isTempTable());
+            node.diagram.model.setDataProperty(node.data, "OutputTableName", self.selectedOutputTableName());
+            node.diagram.model.setDataProperty(node.data, "IsOutputTableTemporary", self.isTempTable());
 
             self.node.data["ColumnMappings"] = [];
             if (!(self.columnMappings == null)) {
@@ -1399,12 +1504,12 @@ window.onresize = function () {
                     tempColumnMappings.push({ sourceColumnName: value.sourceColumnName(), targetColumnName: value.targetColumnName(), targetColumnType: value.targetColumnType(), getColumnsByTableName: self.getColumnsByTableName });
                 });
             }
-            node.diagram.model.setDataProperty(node.diagram.model.findNodeDataForKey(node.data.key), "ColumnMappings", tempColumnMappings);
+            node.diagram.model.setDataProperty(node.data, "ColumnMappings", tempColumnMappings);
 
             for (var i = 0; i < node.data.FileAttributes.length; i++) {
                 tempFileAttributes[i].FILEATTRIBUTEVALUE = self.fileAttributes()[i + 3].attributeValue();
             }
-            node.diagram.model.setDataProperty(node.diagram.model.findNodeDataForKey(node.data.key), "FileAttributes", tempFileAttributes);
+            node.diagram.model.setDataProperty(node.data, "FileAttributes", tempFileAttributes);
 
             node.diagram.model.commitTransaction("set file properties");
 
@@ -1420,11 +1525,15 @@ window.onresize = function () {
             delete vm.node;
         }
 
+        self.createTableModel = function (node, tablesPaletteIn) {
+            var table = node.data;
+            ko.applyBindings(table, $('#Table_model')[0]);
+        }
+
         self.updateModel = function (node, tablesPaletteIn) {
             var tables = tablesPaletteIn.model.nodeDataArray;
             self.node = node;
 
-            self.modalLoaded.notifySubscribers();
             self.fileAttributes([]);
             self.fileAttributes.push(new fileAttribute('File Name', 'string', node.data.FileName, true));
             self.fileName(node.data.FileName);
@@ -1438,16 +1547,19 @@ window.onresize = function () {
             //}
 
             for (var i = 0; i < node.data.FileAttributes.length; i++) {
+                var attr = new fileAttribute(node.data.FileAttributes[i].FILEATTRIBUTENAME,
+                        node.data.FileAttributes[i].FILEATTRIBUTETYPE, node.data.FileAttributes[i].FILEATTRIBUTEVALUE, false);
+
                 if (node.data.FileAttributes[i].FILEATTRIBUTENAME === "Column Separator") {
                     self.columnSeparators(node.data.FileAttributes[i].FILEATTRIBUTEMASTERDATA);
                 }
-
-                if (node.data.FileAttributes[i].FILEATTRIBUTENAME === "Row Separator") {
+                else if (node.data.FileAttributes[i].FILEATTRIBUTENAME === "Row Separator") {
                     self.rowSeparators(node.data.FileAttributes[i].FILEATTRIBUTEMASTERDATA);
                 }
-
-                self.fileAttributes.push(new fileAttribute(node.data.FileAttributes[i].FILEATTRIBUTENAME,
-                        node.data.FileAttributes[i].FILEATTRIBUTETYPE, node.data.FileAttributes[i].FILEATTRIBUTEVALUE, false));
+                else if (node.data.FileAttributes[i].FILEATTRIBUTENAME === "Column Heading in first data row") {
+                    self.isColumnHeadingPresent = attr.attributeValue;
+                }
+                self.fileAttributes.push(attr);
             }
 
             self.outputTables([]);
@@ -1475,7 +1587,7 @@ window.onresize = function () {
         var self = this;
         self.DisplayName = displayName;
         self.AttributeType = attributeType;
-
+        self.oldValue = '';
         if (self.AttributeType == "boolean") {
             //If AttributeType is boolean then convert its value to boolean
             self.AttributeValue = ko.observable(attributeValue === "1" || attributeValue === true);
@@ -1491,23 +1603,31 @@ window.onresize = function () {
 
         self.AttributeValue.subscribe(function (newValue) {
             if (self.UpdatableAttributeName == null) return;
-
-            var tempFileAttributes = JSON.parse(JSON.stringify(node.data.FileAttributes));
-            var fileAttributeObj = tempFileAttributes.filter(function (item) { return item.FILEATTRIBUTEID == container.FILEATTRIBUTEID });
-
-            fileAttributeObj[0]["FILEATTRIBUTEVALUE"] = newValue;
-
-            node.diagram.model.startTransaction("properties pane");
-            node.diagram.model.setDataProperty(node.data, "FileAttributes", tempFileAttributes);
-            node.diagram.model.commitTransaction("properties pane");
-
             if (node) {
-                if (self.DisplayName === "Is Column Heading Present") {
+                var tempFileAttributes = JSON.parse(JSON.stringify(node.data.FileAttributes));
+                var fileAttributeObj = tempFileAttributes.filter(function (item) { return item.FILEATTRIBUTEID == container.FILEATTRIBUTEID });
+
+                fileAttributeObj[0]["FILEATTRIBUTEVALUE"] = newValue;
+
+                node.diagram.model.startTransaction("properties pane");
+                node.diagram.model.setDataProperty(node.data, "FileAttributes", tempFileAttributes);
+                node.diagram.model.commitTransaction("properties pane");
+
+                if (self.DisplayName === "Column Separator" || self.DisplayName === "Row Separator" || self.DisplayName === "Column Heading in first data row" || self.DisplayName === "Header Rows") {
                     node.data.ColumnMappings = [];
                 }
                 node.updateTargetBindings();
             }
+            else {
+                jobViewModel[self.UpdatableAttributeName].forEditing(newValue);
+                ns.okJob(jobViewModel, self.UpdatableAttributeName);
+            }
         });
+
+        self.AttributeValue.subscribe(function (oldValue) {
+            console.log(oldValue);
+            self.oldValue = oldValue;
+        }, self, "beforeChange");
 
         self.modalOpen = function (data, event) {
             if (data.AdditionalData === 'File') {
@@ -1517,6 +1637,11 @@ window.onresize = function () {
             else if (data.AdditionalData === 'Job') {
                 quickSave = false;
                 showJobProperties();
+            }
+            else if (data.AdditionalData === 'Table') {
+                quickSave = false;
+                tableData.UpdateTableModel(node);
+                $("#table-modal").modal('show');
             }
         }
     }
@@ -1533,6 +1658,7 @@ window.onresize = function () {
 
         //updates the right panel when a node is selected
         self.updateAttributes = function (node) {
+            if (node == undefined) canvas.clearSelection();
             self.attributes([]);
             if (node && node.diagram.selection.count === 1) {
 
@@ -1552,11 +1678,12 @@ window.onresize = function () {
                 else if (node.category === "Table") {
                     self.attributes.push(new Attribute(node, node.data, null, "TableName", node.data.WorkspaceTableName));
                     self.attributes.push(new Attribute(node, node.data, null, "TableType", node.data.TableType));
+                    self.attributes.push(new Attribute(node, node.data, null, null, "Show Tables's Detailed Configuration", "hyperlink", "Table"));
                 }
             }
             else if (canvas.selection.count === 0) {
-                self.attributes.push(new Attribute(null, jobViewModel, null, "Job Name", jobViewModel.JOBNM() === '' ? 'Untitled Job' : jobViewModel.JOBNM()));
-                self.attributes.push(new Attribute(null, jobViewModel, null, "Job Description", jobViewModel.DESCNT()));
+                self.attributes.push(new Attribute(null, jobViewModel, "JOBNM", "Job Name", jobViewModel.JOBNM() === '' ? 'Untitled Job' : jobViewModel.JOBNM()));
+                self.attributes.push(new Attribute(null, jobViewModel, "DESCNT", "Job Description", jobViewModel.DESCNT()));
                 self.attributes.push(new Attribute(null, jobViewModel, null, "DateTime Created", jobViewModel.CREATEDATE()));
                 self.attributes.push(new Attribute(null, jobViewModel, null, "DateTime Modified", jobViewModel.MODIFIEDDATE()));
                 self.attributes.push(new Attribute(null, jobViewModel, null, null, "Show Job's Detailed Configuration", "hyperlink", "Job"));
@@ -1572,13 +1699,17 @@ window.onresize = function () {
                 write: function (newValue) {
                     var current = target(),
                         roundingMultiplier = Math.pow(10, precision),
-                        newValueAsNum = isNaN(newValue) ? 0 : +newValue,
-                        valueToWrite = Math.round(newValueAsNum * roundingMultiplier) / roundingMultiplier;
 
-                    //only write if it changed
-                    if (valueToWrite !== current) {
+                        newValueAsNum = (isNaN(newValue) || newValue < 0) ? target() : +newValue,
+                        valueToWrite = Math.round(newValueAsNum * roundingMultiplier) / roundingMultiplier;
+                    if (newValue == "") {
+                        target.notifySubscribers(target());
+                    }
+                        //only write if it changed
+                    else if (valueToWrite !== current) {
                         target(valueToWrite);
                     } else {
+
                         //if the rounded value is the same, but a different value was written, force a notification for the current field
                         if (newValue !== current) {
                             target.notifySubscribers(valueToWrite);
@@ -1609,6 +1740,9 @@ window.onresize = function () {
 
         modelData = new newFileModel();
         ko.applyBindings(modelData, $('#file-modal')[0]);
+
+        tableData = new tableModel();
+        ko.applyBindings(tableData, $('#table-modal')[0]);
 
         $(window).bind('beforeunload', function () {
             if (canvas.isModified) {
@@ -1741,7 +1875,7 @@ window.onresize = function () {
 
             for (var i in model.MultiLangs) {
                 if (model.MultiLangs[i].LANGCD == Ciel.CurrentLang) {
-                    if (model.MultiLangs[i].JOBID.toString() != "00000") {
+                    if (model.MultiLangs[i].JOBID.toString() != Ciel.Process.ProcessDesign.CreateJob.newJobId) {
                         model.JOBID = model.MultiLangs[i].JOBID.toString();
                         model.JOBNM = model.MultiLangs[i].JOBNM;
                         model.DESCNT = model.MultiLangs[i].DESCNT;
@@ -1775,12 +1909,12 @@ window.onresize = function () {
         data.reset();
     }
 
-    ns.okJob = function (data) {
+    ns.okJob = function (data, propertyToValidate) {
         var newModelML = new JobViewModel(data.MultiLangs[0].JOBID.newValue(), data.MultiLangs[0].JOBNM.newValue(), data.MultiLangs[0].DESCNT.newValue(), data.MultiLangs[0].LANGCD.newValue(), data.MultiLangs[0].LANGNM.newValue(),
             data.MultiLangs[0].JOBJSON.newValue(), data.MultiLangs[0].CREATEDATE(), data.MultiLangs[0].MODIFIEDDATE(), data.MultiLangs[0].NewDefFlag, []);
         var newModel = new JobViewModel(data.JOBID.newValue(), data.JOBNM.newValue(), data.DESCNT.newValue(), data.LANGCD.newValue(), data.LANGNM.newValue(), data.JOBJSON.newValue(), data.CREATEDATE(), data.MODIFIEDDATE(), data.NewDefFlag, newModelML);
 
-        if (validateJob(newModel)) {
+        if (validateJob(newModel, false, propertyToValidate)) {
             data.commit();
             $('#job-addedit-modal').modal('hide');
             canvas.clearSelection();
@@ -1794,6 +1928,10 @@ window.onresize = function () {
             if (quickSave) {
                 ns.saveJob(newModel);
             }
+        }
+        else {
+            data.reset();
+            objPropertiesViewModel.updateAttributes();
         }
     }
 
@@ -1818,9 +1956,10 @@ window.onresize = function () {
         vmSave.NewDefFlag = (vmSave.JOBID === Ciel.Process.ProcessDesign.CreateJob.newJobId);
 
         if (validateJob(vmSave, true)) {
-            Ciel.Process.Api.PostJob(
-            vmSave,
-            function (newModel) {
+
+            $("#btnSave").removeClass('button').addClass('buttonDisabled').prop("disabled", true);
+
+            Ciel.Process.Api.PostJob(vmSave, function (newModel) {
                 Ciel.Process.ProcessDesign.CreateJob.jobId = newModel.JOBID;
                 jobViewModel.JOBID(newModel.JOBID);
                 jobViewModel.CREATEDATE(newModel.CREATEDATE);
@@ -1833,8 +1972,7 @@ window.onresize = function () {
                 if (clearCanvas) {
                     ns.resetCanvas();
                 }
-            },
-            validateJob.inputErrorFunc);
+            }, jobSaveWarningHandler);
         }
         else {
             quickSave = true;
@@ -1842,7 +1980,12 @@ window.onresize = function () {
         }
     }
 
-    var validateJob = function (data, isHideTooltip) {
+    var jobSaveWarningHandler = function (response) {
+        canvasModifiedHandler(canvas);
+        validateJob.inputErrorFunc(response);
+    }
+
+    var validateJob = function (data, isHideTooltip, propertyToValidate) {
 
         if (isHideTooltip == undefined || isHideTooltip == null) isHideTooltip = false;
 
@@ -1914,9 +2057,15 @@ window.onresize = function () {
         // validation
         var err = NewJobValidation(model);
         if (err.length > 0) {
-            inputErrorFunc(err);
-            canvas.clearSelection();
-            return false;
+            if (propertyToValidate && $.type(propertyToValidate) === 'string') {
+                var validationModel = err.filter(function (item) { return item.PropertyName === propertyToValidate });
+                return !(validationModel && validationModel.length > 0);
+            }
+            else {
+                inputErrorFunc(err);
+                canvas.clearSelection();
+                return false;
+            }
         }
 
         for (var i in model.MultiLangs) {
@@ -1948,10 +2097,12 @@ window.onresize = function () {
             } else {
                 MyDiagram.nodeTemplateMap.add("Column", Ciel.Process.ProcessDesign.CreateJob.nodeTemplateForColumnInOutputCanvas());
             }
-                   
+
         }
 
         existingTable = JSON.parse(JSON.stringify(tablesPalette.model.nodeDataArray));
+
+
         // temp location start # for loading/getting existingTable
         numberOfTables = existingTable.length;
         var select = document.getElementById("existingTable");
@@ -1964,18 +2115,32 @@ window.onresize = function () {
         }
 
         if (typeof currentStep.data.modalInputTablesMapping !== "undefined") {
+            addTemplateForDiagram(myDiagramModalInputTable, true);
+
+            myDiagramModalInputTable.linkTemplate = Ciel.Process.ProcessDesign.CreateJob.linkTemplateForRelationsMapping();
             myDiagramModalInputTable.model = go.Model.fromJson(JSON.parse(JSON.stringify(currentStep.data.modalInputTablesMapping)));
+
+            addTemplateForDiagram(myDiagramModalOutputTable, false);
+            myDiagramModalOutputTable.linkTemplate = Ciel.Process.ProcessDesign.CreateJob.linkTemplateForMapping();
             myDiagramModalOutputTable.model = go.Model.fromJson(JSON.parse(JSON.stringify(currentStep.data.modalOutputTablesMapping)));
-            
+            var tableName = "";
+            myDiagramModalOutputTable.nodes.each(function (node) {
+                if (node.data.category == "Table" && (node.data.WorkspaceTableName != "Selected Column")) {
+                    tableName = node.data.WorkspaceTableName;
+                }
+            });
+            $("#existingTable").val(tableName);
+
         }
         else {
-            
+
             /*input table start*/
             var tablesToCurrentStep = [];
             currentStep.findNodesInto().each(function (n) {
                 if (n.data.category == "Table") {
                     tablesToCurrentStep.push(n.data);
-                } else {
+                }
+                else {
                     if (n.data.category == "FileWithTable") {
                         var add = true;
                         tablesPalette.nodes.each(function (node) {
@@ -1996,12 +2161,10 @@ window.onresize = function () {
             var linkDataArray = [];
 
             addTemplateForDiagram(myDiagramModalInputTable, true);
-            
+
             myDiagramModalInputTable.linkTemplate = Ciel.Process.ProcessDesign.CreateJob.linkTemplateForRelationsMapping();
 
             myDiagramModalInputTable.model = new go.GraphLinksModel(nodeDataArray, linkDataArray);
-
-            
 
             var tablesFromCurrentStep = [];
             currentStep.findNodesOutOf().each(function (n) {
@@ -2013,20 +2176,21 @@ window.onresize = function () {
 
             TableInJson = [];
             nodeDataArray = [];
-            TableInJson = JSON.parse(JSON.stringify(tablesFromCurrentStep));
-            if (TableInJson.length != 0) {
-                nodeDataArray.push(Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(TableInJson[0]));
-                Array.prototype.push.apply(nodeDataArray, Ciel.Process.ProcessDesign.CreateJob.getColumnsFromTable(TableInJson[0]));
-                select.value = TableInJson[0].WorkspaceTableName;
-            }
-
-
             /* #ltmctooc end */
             nodeDataArray.push({
                 category: "Table",
                 WorkspaceTableName: "Selected Column",
                 isGroup: true
             });
+            TableInJson = JSON.parse(JSON.stringify(tablesFromCurrentStep));
+            if (TableInJson.length != 0) {
+                nodeDataArray.push(Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(TableInJson[0]));
+                Array.prototype.push.apply(nodeDataArray, Ciel.Process.ProcessDesign.CreateJob.getColumnsFromTable(TableInJson[0], 0));
+                select.value = TableInJson[0].WorkspaceTableName;
+            }
+
+
+
 
             linkDataArray = [];
             addTemplateForDiagram(myDiagramModalOutputTable, false);
@@ -2035,14 +2199,9 @@ window.onresize = function () {
 
         }
 
-        
-       // myDiagramModalInputTable.zoomToRect(myDiagramModalInputTable.documentBounds);
 
-       
-        
-       
         // temp location end
-        
+
         numberOfTables = existingTable.length;
         $("#stepModal").modal('show');
     }
@@ -2052,17 +2211,14 @@ window.onresize = function () {
         return goJs(go.Diagram, divID,  // must name or refer to the DIV HTML element
     {
         //doubleClick: showJobModal,
-        initialDocumentSpot: go.Spot.Center,
-        initialViewportSpot: go.Spot.Center,
         initialContentAlignment: go.Spot.TopLeft,
         resizingTool: new laneResizingTool(),
         layout: goJs(groupLayout),
         mouseDragOver: function (e) {
-           
             if (executeDragOver) {
                 executeDragOver = false;
                 var nodeCount = 0;
-                var it = e.diagram.toolManager.draggingTool.draggingParts.iterator;
+                var it = canvas.toolManager.draggingTool.draggingParts.iterator;
                 while (it.next()) {
                     if (nodeCount > 0) {
                         var node = it.value;
@@ -2076,8 +2232,8 @@ window.onresize = function () {
             e.subject.each(function (node) {
                 node.opacity = 1;
             });
-            e.diagram.commandHandler.expandSubGraph();
-            e.diagram.zoomToFit();
+            canvas.commandHandler.expandSubGraph();
+            canvas.zoomToFit();
         },
         allowDrop: true,  // must be true to accept drops from the Palette
         // what to do when a drag-drop occurs in the Diagram's background
@@ -2090,20 +2246,20 @@ window.onresize = function () {
         "commandHandler.archetypeGroupData": { text: "Group", isGroup: true, color: "blue", category: "Table" },
         "linkingTool.isUnconnectedLinkValid": false,
         "relinkingTool.isUnconnectedLinkValid": false,
-        "commandHandler.canDeleteSelection": function () {   
-                var link = this.diagram.selection.first();
-                if (link!=null && link.part instanceof go.Link) {
-                    return true;
-                } else {
-                return false;
-                }
-        },
         "linkingTool.linkValidation": function (from, fromPort, to, toPort, link) {
-            
+
             if (from.findLinksBetween(to, null, null).count == 1) return false;
 
             return from.containingGroup !== to.containingGroup;
-        }
+        },
+        "commandHandler.canDeleteSelection": function () {
+            var link = this.diagram.selection.first();
+            if (link != null && link.part instanceof go.Link) {
+                return true;
+            } else {
+                return false;
+            }
+        },
     });
     }
 
@@ -2281,21 +2437,21 @@ window.onresize = function () {
         {
             routing: go.Link.AvoidsNodes,
             curve: go.Link.JumpOver,
-            corner: 5, toShortLength: 4,fromShortLength:100,
+            corner: 5, toShortLength: 4, fromShortLength: 100,
             relinkableFrom: false,
             relinkableTo: false,
             reshapable: false,
             resegmentable: true,
-            selectionAdorned: false,    
+            selectionAdorned: false,
             // mouse-overs subtly highlight links:
             mouseEnter: function (e, link) { link.findObject("HIGHLIGHT").stroke = "rgba(30,144,255,0.2)"; },
             mouseLeave: function (e, link) { link.findObject("HIGHLIGHT").stroke = "transparent"; },
-        
-            contextMenu:goJs(go.Adornment, "Vertical",
+
+            contextMenu: goJs(go.Adornment, "Vertical",
                  goJs(go.Panel, "Vertical", // title above Placeholder
               goJs(go.Panel, "Horizontal",  // button next to TextBlock
                 { stretch: go.GraphObject.Horizontal, background: "#ccc" },
-                goJs(go.TextBlock,"Select Join",
+                goJs(go.TextBlock, "Select Join",
                   {
                       alignment: go.Spot.Left,
                       editable: true,
@@ -2306,7 +2462,7 @@ window.onresize = function () {
                   }
                   )
               ),  // end Horizontal Panel
-              
+
                 Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("innerJoin"),
                      Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("fullJoin"),
                      Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("leftJoin"),
@@ -2315,7 +2471,16 @@ window.onresize = function () {
                      Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("leftOuter"),
                      Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("rightOuter")
             )// end Vertical Panel
-            ) //end of adornment  
+            ) //end of adornment
+            /*  goJs(go.Adornment, "Vertical",
+                   Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("innerJoin"),
+                   Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("fullJoin"),
+                   Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("leftJoin"),
+                   Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("rightJoin"),
+                   Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("fullOuter"),
+                   Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("leftOuter"),
+                   Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("rightOuter")
+          ) */
         },
         new go.Binding("points").makeTwoWay(),
         goJs(go.Shape,  // the highlight shape, normally transparent
@@ -2339,22 +2504,22 @@ window.onresize = function () {
                               goJs(go.Shape, { fill: "#FFFFCC" }),
                                goJs(go.TextBlock, new go.Binding("text", "", function (obj) {
                                    var relationType = "innerJoin";
-                                   return ( relationType.toUpperCase() + ": "
+                                   return (relationType.toUpperCase() + ": "
                                        + myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.from).data.group).data.WorkspaceTableName + "." +
                                        myDiagramModalInputTable.findNodeForKey(obj.from).data.columnname + " = " +
                                        myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.to).data.group).data.WorkspaceTableName +
-                                       "." + myDiagramModalInputTable.findNodeForKey(obj.to).data.columnname );
+                                       "." + myDiagramModalInputTable.findNodeForKey(obj.to).data.columnname);
                                }), { margin: 4 },
                               new go.Binding("text", "toolTipText"))
                             ),  // end of Adornment
-                            
+
                       },
                        new go.Binding("source", "relationType", Ciel.Process.ProcessDesign.CreateJob.getSourceForRelation).makeTwoWay())
         )
       );
     }
 
-   
+
     // get
     ns.createContextMenuButton = function (relationType) {
         return goJs("ContextMenuButton",
@@ -2368,51 +2533,51 @@ window.onresize = function () {
     }
     //for picture in context menu
     ns.getImageForRelationType = function (relationType) {
-       return goJs(go.Picture,
-                      {
-                          name: 'Picture',
-                          desiredSize: new go.Size(20, 20),
-                          source: CONFIG_APP_BASEURL + "/Areas/Process/Images/"+relationType+".png",
-                          margin:3,
-                          toolTip:  // define a tooltip for each node that displays the color as text
-                            goJs(go.Adornment, "Auto",
-                              goJs(go.Shape, { fill: "#FFFFCC" }),
-                               goJs(go.TextBlock, new go.Binding("text", "", function (obj) {
-                                   var toolTipText;
-                                   switch (relationType) {
-                                       case "rightOuter":
-                                           toolTipText = "Select all data from: " + myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.to).data.group).data.WorkspaceTableName + ' exclude matching data from ' +
-                                      myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.from).data.group).data.WorkspaceTableName;
-                                           break;
-                                       case "fullOuter":
-                                           toolTipText = "Select all data from both table exlude matching data from both.";
-                                           break;
-                                       case "leftOuter":
-                                           toolTipText = "Select all data from: " + myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.from).data.group).data.WorkspaceTableName + ' exclude matching data from ' +
-                                               myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.to).data.group).data.WorkspaceTableName;
-                                           break;
-                                       case "rightJoin":
-                                           toolTipText = "Select all data from: " + myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.to).data.group).data.WorkspaceTableName;
-                                           break;
-                                       case "leftJoin":
-                                           toolTipText = "Select all data from: " + myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.from).data.group).data.WorkspaceTableName;
-                                           break;    
-                                       case "fullJoin":
-                                           toolTipText =  "Select all data from both tables";
-                                           break;
-                                       case "innerJoin":
-                                           toolTipText = "Select matching data from both tables.";
-                                           break;
-                                               // add the default keyword here
-                                   }
-                                   return toolTipText;
-                              }), { margin: 4 })
-                           
-                            ),  // end of Adornment
+        return goJs(go.Picture,
+                       {
+                           name: 'Picture',
+                           desiredSize: new go.Size(20, 20),
+                           source: CONFIG_APP_BASEURL + "/Areas/Process/Images/" + relationType + ".png",
+                           margin: 3,
+                           toolTip:  // define a tooltip for each node that displays the color as text
+                             goJs(go.Adornment, "Auto",
+                               goJs(go.Shape, { fill: "#FFFFCC" }),
+                                goJs(go.TextBlock, new go.Binding("text", "", function (obj) {
+                                    var toolTipText;
+                                    switch (relationType) {
+                                        case "rightOuter":
+                                            toolTipText = "Select all data from: " + myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.to).data.group).data.WorkspaceTableName + ' exclude matching data from ' +
+                                       myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.from).data.group).data.WorkspaceTableName;
+                                            break;
+                                        case "fullOuter":
+                                            toolTipText = "Select all data from both table exlude matching data from both.";
+                                            break;
+                                        case "leftOuter":
+                                            toolTipText = "Select all data from: " + myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.from).data.group).data.WorkspaceTableName + ' exclude matching data from ' +
+                                                myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.to).data.group).data.WorkspaceTableName;
+                                            break;
+                                        case "rightJoin":
+                                            toolTipText = "Select all data from: " + myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.to).data.group).data.WorkspaceTableName;
+                                            break;
+                                        case "leftJoin":
+                                            toolTipText = "Select all data from: " + myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.from).data.group).data.WorkspaceTableName;
+                                            break;
+                                        case "fullJoin":
+                                            toolTipText = "Select all data from both tables";
+                                            break;
+                                        case "innerJoin":
+                                            toolTipText = "Select matching data from both tables.";
+                                            break;
+                                            // add the default keyword here
+                                    }
+                                    return toolTipText;
+                                }), { margin: 4 })
 
-                      }//,
-                       //new go.Binding("source", "relationType", Ciel.Process.ProcessDesign.CreateJob.getSourceForRelation).makeTwoWay()
-                       )
+                             ),  // end of Adornment
+
+                       }//,
+                        //new go.Binding("source", "relationType", Ciel.Process.ProcessDesign.CreateJob.getSourceForRelation).makeTwoWay()
+                        )
     }
 
     // for output model only
@@ -2525,7 +2690,7 @@ window.onresize = function () {
             if (node.data.WorkspaceTableName == "Selected Column")
             { key = node.data.key; }
         });
-       
+
         //adding column
         myDiagramModalInputTable.nodes.each(function (n) {
 
@@ -2546,7 +2711,7 @@ window.onresize = function () {
                             add = false;
                         }
                     });
-                    if (add) { outputModel.addNodeData(newNodeColumn);  }
+                    if (add) { outputModel.addNodeData(newNodeColumn); }
 
                 } else {
                     var newNodeColumn = {};
@@ -2631,12 +2796,12 @@ window.onresize = function () {
         var model = e.diagram.model;
         var fromNodeGroup = e.diagram.findNodeForKey(selectedLinkData.from).data.group;
         var toNodeGroup = e.diagram.findNodeForKey(selectedLinkData.to).data.group;
-        
+
         e.diagram.links.each(function (link) {
 
             if (link.data !== null &&
                 ((e.diagram.findNodeForKey(link.data.from).data.group === fromNodeGroup && e.diagram.findNodeForKey(link.data.to).data.group === toNodeGroup) ||
-                (e.diagram.findNodeForKey(link.data.from).data.group === toNodeGroup && e.diagram.findNodeForKey(link.data.to).data.group === fromNodeGroup) )) {
+                (e.diagram.findNodeForKey(link.data.from).data.group === toNodeGroup && e.diagram.findNodeForKey(link.data.to).data.group === fromNodeGroup))) {
                 var fromNode = model.findNodeDataForKey(link.data.from);
                 var toNode = model.findNodeDataForKey(link.data.to);
                 var fromNodeTable = model.findNodeDataForKey(fromNode.group);
@@ -2649,7 +2814,7 @@ window.onresize = function () {
                 e.diagram.commitTransaction("changed relation");
             }
         });
-        
+
     }
 
     ns.resetCanvas = function () {
@@ -2684,20 +2849,20 @@ window.onresize = function () {
             isGroup: true,
             key: table.key,
             WorkspaceTableName: table.WorkspaceTableName,
-            Fields: table.Fields,                //nowedit
+            Fields: table.Fields,
             to: table.to,
             from: table.from
         };
     }
 
-    ns.getColumnsFromTable = function (table) {
+    ns.getColumnsFromTable = function (table, index) {
         var columns = [];
         for (j = 0; j < table.Fields.length; j++) {
             // var column =
             columns.push({
                 category: "Column",
                 columnname: table.Fields[j].COLUMNNAME,                              //%%edit      text: TableInJson[i].columns[j].name,
-                columnid: ("T" + i + "C" + j + "I" + table.Fields[j].COLUMNID),     //%%edit             nothing remove this 
+                columnid: ("T" + index + "C" + j + "I" + table.Fields[j].COLUMNID),     //%%edit             nothing remove this 
                 columntype: table.Fields[j].COLUMNTYPE,                                                 //%%edit             nothing remove this 
                 group: table.key
             });
@@ -2718,15 +2883,12 @@ window.onresize = function () {
                 columnid: "00",     //%%edit             nothing remove this 
                 columntype: "",                                                 //%%edit             nothing remove this 
                 group: TableInJson[i].key
-
             };
             tables.push(defaultColumn);
-            Array.prototype.push.apply(tables, Ciel.Process.ProcessDesign.CreateJob.getColumnsFromTable(TableInJson[i]));
+            Array.prototype.push.apply(tables, Ciel.Process.ProcessDesign.CreateJob.getColumnsFromTable(TableInJson[i], i));
         }
 
         return tables;
     }
-
-
 
 }(Ciel.Process.ProcessDesign.CreateJob));
