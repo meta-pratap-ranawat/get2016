@@ -49,7 +49,58 @@ $(document).ready(function () {
         return true;
 
     }
+    tool.isValidLink = function (fromnode, fromport, tonode, toport) {
+        return true;
+    }
+    function isCyclic(begin, end) {
+        var stack = new go.List(go.Node);
+        var coll = new go.List(go.List);
+        var diagram = begin.diagram;
+        function find(source, end) {
+            source.memberParts.each(function (column) {
+                if (column.findLinksConnected().count != 0) {
+                    isConnected = true;
+                    column.findLinksConnected().each(function (link) {
+                        if (typeof linksHash[link.data.toolTipText] === "undefined") {
+                            if (column.key == link.to) {
+                                n = diagram.findNodeForKey(link.from).containingGroup;
+                            } else {
+                                n = diagram.findNodeForKey(link.to).containingGroup;
+                            }
+                          //  if (n === source) return;  // ignore reflexive links
+                            if (n === end) {  // success
+                                var path = stack.copy();
+                                path.add(end);  // finish the path at the end node
+                                coll.add(path);  // remember the whole path
+                            } else if (!stack.contains(n)) {  // inefficient way to check having visited
+                                stack.add(n);  // remember that we've been here for this path (but not forever)
+                                find(n, end);
+                                stack.removeAt(stack.count - 1);
+                            }  // else might be a cycle
+                            linksHash[link.data.toolTipText] = link.data;
+                        }
 
+                    });
+                }
+            });
+            source.findNodesOutOf().each(function (n) {
+                if (n === source) return;  // ignore reflexive links
+                if (n === end) {  // success
+                    var path = stack.copy();
+                    path.add(end);  // finish the path at the end node
+                    coll.add(path);  // remember the whole path
+                } else if (!stack.contains(n)) {  // inefficient way to check having visited
+                    stack.add(n);  // remember that we've been here for this path (but not forever)
+                    find(n, end);
+                    stack.removeAt(stack.count - 1);
+                }  // else might be a cycle
+            });
+        }
+
+        stack.add(begin);  // start the path at the begin node
+        find(begin, end);
+        return coll;
+    }
 
     myDiagramModalInputTable.addDiagramListener("LinkDrawn", function (e) {
         var link = e.subject;
@@ -300,6 +351,13 @@ $(document).ready(function () {
                 currentStepOutputTable = n.data;
             }
         });
+        var isFirstTable = true;
+        currentStep.findNodesInto().each(function (n) {
+            if (isFirstTable && n.data.category == "Table") {
+                currentStep.data.fromTable = n.data.WorkspaceTableName;
+                isFirstTable = false;
+            }
+        });
 
         myDiagramModalOutputTable.nodes.each(function (node) {
             if (node.data.category == "Table" && (node.data.WorkspaceTableName != "Selected Column")) {
@@ -307,58 +365,63 @@ $(document).ready(function () {
             }
         });
 
+        // adding mappings in order of tables
+        currentStep.data.mappings = [];         // 3# mappings
+        var linksHash = {};
+        myDiagramModalInputTable.nodes.each(function (node) {
+            if (node.data.category == "Table") {
+               
+                var isConnected = false;
+                node.memberParts.each(function (column) {
+                    if (column.findLinksConnected().count != 0) {
+                        isConnected = true;
+                        column.findLinksConnected().each(function (link) {
+                            if (typeof linksHash[link.data.toolTipText] === "undefined") {
+                                var relationType = link.data.toolTipText;
+                                var res = relationType.match(/INNERJOIN/) + relationType.match(/FULLJOIN/) + relationType.match(/RIGHTJOIN/)
+                                               + relationType.match(/LEFTJOIN/) + relationType.match(/FULLOUTER/) + relationType.match(/LEFTOUTER/)
+                                               + relationType.match(/RIGHTOUTER/);
+                                res = res.replace(/null/g, "");
+                                res = res.replace(/0/g, "");
+
+                                var start = relationType.indexOf(":") + 2;
+                                var end = relationType.length;
+
+                                var expression = relationType.substr(start, end);
+                                currentStep.data.mappings.push({
+                                    joinType: res,
+                                    joinExpression: expression
+                                });
+                                linksHash[link.data.toolTipText]= link.data;
+                            }
+
+                        });
+                    } 
+                });
+                if (isConnected === false) {
+                    currentStep.data.mappings.push({
+                        joinType: "CROSS JOIN",
+                        joinExpression: node.data.WorkspaceTableName
+                    });
+                }
+            } 
+
+        });
+
         var modalInputTables = myDiagramModalInputTable.model.nodeDataArray;
         var inputTables = [];
         for (i = 0; i < modalInputTables.length; i++) {
-            // console.log(modalInputTables[i].category);
+            
             if (modalInputTables[i].category == "Table") {
                 inputTables.push(Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(JSON.parse(JSON.stringify(modalInputTables[i]))));
             }
         }
-        currentStep.data["inputTables"] = inputTables;
-
-
-
-        /*  var tableToSave = Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(JSON.parse(JSON.stringify(modalOutputTable)));
-          tableToSave.isGroup = false;
-          tableToSave.columns = [];
-          myDiagramModalOutputTable.nodes.each(function (node) {
-              if (node.data.category == "Column" && (node.data.group == tableToSave.key)) {
-                  tableToSave.columns.push({
-                      name: node.data.columnname,
-                      id: node.data.columnid,
-                      seq: 200
-                  });
-              }
-          }); */
+        currentStep.data["inputTables"] = inputTables;          //1# inputTable to currentStep
 
         var outputTable = Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(JSON.parse(JSON.stringify(modalOutputTable)));
         outputTable.isGroup = false;
         outputTable.from = currentStep.data.key;
-        currentStep.data["outputTable"] = outputTable;
-        // 2# outputTable from currentStep
-
-
-        currentStep.data.mappings = [];                    // 3# mappings
-        var modalInputMappings = myDiagramModalInputTable.model.linkDataArray;
-
-        for (i = 0; i < modalInputMappings.length; i++) {
-            var relationType = modalInputMappings[i].toolTipText;
-            var res = relationType.match(/INNERJOIN/) + relationType.match(/FULLJOIN/) + relationType.match(/RIGHTJOIN/)
-                           + relationType.match(/LEFTJOIN/) + relationType.match(/FULLOUTER/) + relationType.match(/LEFTOUTER/)
-                           + relationType.match(/RIGHTOUTER/);
-            res = res.replace(/null/g, "");
-            res = res.replace(/0/g, "");
-
-            var start = relationType.indexOf(":") + 2;
-            var end = relationType.length;
-
-            var expression = relationType.substr(start, end);
-            currentStep.data.mappings.push({
-                joinType: res,
-                joinExpression: expression
-            });
-        }
+        currentStep.data["outputTable"] = outputTable;            // 2# outputTable from currentStep
 
         currentStep.data.ColumnMappings = [];                    // 4# column mappings
         var modalOutputMappings = myDiagramModalOutputTable.model.linkDataArray;
@@ -828,19 +891,44 @@ $(document).ready(function () {
             });
 
         canvas.addDiagramListener("LinkDrawn", function (e) {
-
+            debugger;
             var link = e.subject;
             var diagram = e.diagram;
+            var stepModalInputTables;
             var fromNode = diagram.findNodeForKey(link.data.from);
             var toNode = diagram.findNodeForKey(link.data.to);
-            diagram.startTransaction("addData");
+            
             if (fromNode.data.category != "File") {
+                diagram.startTransaction("addData");
                 diagram.model.setDataProperty(fromNode.data, "to", toNode.data.key);
+                diagram.commitTransaction("addData");
             }
             if (toNode.data.category != "Step" && toNode.data.category != "File") {
                 diagram.model.setDataProperty(toNode.data, "from", fromNode.data.key);
             }
-            diagram.commitTransaction("addData");
+            if (toNode.data.category == "Step" && (typeof toNode.data.modalInputTablesMapping) !== "undefined") {
+                stepModalInputTables = JSON.parse(JSON.stringify(toNode.data.modalInputTablesMapping));
+                var lastkey = stepModalInputTables.nodeDataArray[stepModalInputTables.nodeDataArray.length - 1].key;
+                var lastGroupKey = stepModalInputTables.nodeDataArray[stepModalInputTables.nodeDataArray.length - 1].group;
+                var lastGroupLoc="";
+                for (i = 0; i < stepModalInputTables.nodeDataArray.length; i++) {
+                    if (stepModalInputTables.nodeDataArray[i].category === "Table" && stepModalInputTables.nodeDataArray[i].key === lastGroupKey) {
+                        lastGroupLoc = stepModalInputTables.nodeDataArray[i].loc;
+                    }
+                }
+                var newTable = JSON.parse(JSON.stringify(fromNode.data));
+                newTable.key = parseInt(lastkey - 1);
+                var loc = go.Point.parse(lastGroupLoc);
+                loc.x += 500;
+                //newTable.loc = go.Point.stringify(loc);
+                nodeDataArray = Ciel.Process.ProcessDesign.CreateJob.getTablesInGroupFormat(newTable);
+                nodeDataArray[0].loc = go.Point.stringify(loc);
+                Array.prototype.push.apply(stepModalInputTables.nodeDataArray, nodeDataArray);
+                diagram.startTransaction("addingTable");
+                diagram.model.setDataProperty(toNode.data, "modalInputTablesMapping", stepModalInputTables);
+                diagram.commitTransaction("addingTable");
+            }
+           
 
         });
 
@@ -853,14 +941,14 @@ $(document).ready(function () {
                     if (n.data.category === "Step" && n.data.text === "Join") {
                         diagram.model.setDataProperty(n.data, "modalOutputTablesMapping", undefined);
                         diagram.model.setDataProperty(n.data, "modalInputTablesMapping", undefined);
-                       // node.data.modalOutputTablesMapping = undefined;
-                       // node.data.modalInputTablesMapping = undefined;
+                        // node.data.modalOutputTablesMapping = undefined;
+                        // node.data.modalInputTablesMapping = undefined;
                     }
                     diagram.commitTransaction("deleteTable");
                 })
             });
 
-          
+
 
         });
         ns.globalCanvas = canvas;
@@ -1223,10 +1311,10 @@ $(document).ready(function () {
                visible: false
            },
              new go.Binding("text", "to").makeTwoWay()),
-               makePort("T", go.Spot.Top, true, true),
-             makePort("L", go.Spot.Left, true, true),
-             makePort("R", go.Spot.Right, true, true),
-             makePort("B", go.Spot.Bottom, true, true)
+               makePort("T", go.Spot.Top, true, false),
+             makePort("L", go.Spot.Left, true, false),
+             makePort("R", go.Spot.Right, true, false),
+             makePort("B", go.Spot.Bottom, true, false)
       ));
 
         canvas.nodeTemplateMap.add("Table",
@@ -2872,21 +2960,35 @@ $(document).ready(function () {
     }
 
     ns.getTablesInGroupFormat = function (TableInJson) {
+        debugger;
         var tables = [];
         var numberOfTables = TableInJson.length;
-
-        for (i = 0; i < numberOfTables; i++) {
-            tables.push(Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(TableInJson[i]));
+        if ((typeof numberOfTables) !== "undefined") {
+            for (i = 0; i < numberOfTables; i++) {
+                tables.push(Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(TableInJson[i]));
+                var defaultColumn = {
+                    category: "Column",
+                    columnname: "All",                             //%%edit      text: TableInJson[i].columns[j].name,
+                    columnid: "00",     //%%edit             nothing remove this 
+                    columntype: "",                                                 //%%edit             nothing remove this 
+                    group: TableInJson[i].key
+                };
+                tables.push(defaultColumn);
+                Array.prototype.push.apply(tables, Ciel.Process.ProcessDesign.CreateJob.getColumnsFromTable(TableInJson[i], i));
+            }
+        } else {
+            tables.push(Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(TableInJson));
             var defaultColumn = {
                 category: "Column",
                 columnname: "All",                             //%%edit      text: TableInJson[i].columns[j].name,
                 columnid: "00",     //%%edit             nothing remove this 
                 columntype: "",                                                 //%%edit             nothing remove this 
-                group: TableInJson[i].key
+                group: TableInJson.key
             };
             tables.push(defaultColumn);
-            Array.prototype.push.apply(tables, Ciel.Process.ProcessDesign.CreateJob.getColumnsFromTable(TableInJson[i], i));
+            Array.prototype.push.apply(tables, Ciel.Process.ProcessDesign.CreateJob.getColumnsFromTable(TableInJson, 100));
         }
+        
 
         return tables;
     }
