@@ -50,57 +50,65 @@ $(document).ready(function () {
 
     }
     tool.isValidLink = function (fromnode, fromport, tonode, toport) {
-        return true;
-    }
-    function isCyclic(begin, end) {
-        var stack = new go.List(go.Node);
-        var coll = new go.List(go.List);
-        var diagram = begin.diagram;
-        function find(source, end) {
-            source.memberParts.each(function (column) {
-                if (column.findLinksConnected().count != 0) {
-                    isConnected = true;
-                    column.findLinksConnected().each(function (link) {
-                        if (typeof linksHash[link.data.toolTipText] === "undefined") {
-                            if (column.key == link.to) {
-                                n = diagram.findNodeForKey(link.from).containingGroup;
-                            } else {
-                                n = diagram.findNodeForKey(link.to).containingGroup;
-                            }
-                          //  if (n === source) return;  // ignore reflexive links
-                            if (n === end) {  // success
-                                var path = stack.copy();
-                                path.add(end);  // finish the path at the end node
-                                coll.add(path);  // remember the whole path
-                            } else if (!stack.contains(n)) {  // inefficient way to check having visited
-                                stack.add(n);  // remember that we've been here for this path (but not forever)
-                                find(n, end);
-                                stack.removeAt(stack.count - 1);
-                            }  // else might be a cycle
-                            linksHash[link.data.toolTipText] = link.data;
-                        }
+        
+        var shortCheck = false;
+        fromnode.containingGroup.findExternalNodesConnected().each(function (node) {
+            if (node.containingGroup === tonode.containingGroup && fromnode.findLinksBetween(tonode, null, null).count == 0) {
+                shortCheck = true;
+            }  
+        });
+       
 
-                    });
-                }
-            });
-            source.findNodesOutOf().each(function (n) {
-                if (n === source) return;  // ignore reflexive links
-                if (n === end) {  // success
-                    var path = stack.copy();
-                    path.add(end);  // finish the path at the end node
-                    coll.add(path);  // remember the whole path
-                } else if (!stack.contains(n)) {  // inefficient way to check having visited
-                    stack.add(n);  // remember that we've been here for this path (but not forever)
-                    find(n, end);
-                    stack.removeAt(stack.count - 1);
-                }  // else might be a cycle
-            });
+        if (shortCheck) {
+            return true;
         }
+        else {
+            var queue = [];
+            queue.push(fromnode.containingGroup);
+            var visitedNode = [];
+            var visitedLink = [];
+            visitedNode[fromnode.containingGroup] = true;
+            var paths = [];
 
-        stack.add(begin);  // start the path at the begin node
-        find(begin, end);
-        return coll;
+            while (queue.length) {
+                var vertex = queue.shift();
+                    vertex.findExternalLinksConnected().each(function (edge) {
+
+                        if (typeof visitedLink[edge]==="undefined") {
+                            visitedLink[edge] = true;
+                            var node = (vertex===edge.fromNode.containingGroup)?edge.toNode.containingGroup : edge.fromNode.containingGroup; 
+                            console.log(edge);
+                            if (typeof visitedNode[node] === "undefined") {
+                                queue.push(node);
+                                visitedNode[node] = true;
+                                console.log("visting "+node.data.WorkspaceTableName);
+                            }
+                       
+                            paths[edge] = vertex;
+                        }
+                    });
+            }
+
+            if (typeof visitedNode[tonode.containingGroup] === "undefined") {
+                return true;
+            } else {
+                return false;
+            }
+        }
     }
+
+
+    myDiagramModalOutputTable.addDiagramListener("LinkDrawn", function (e) {
+        var link = e.subject;
+        var fromnode = e.diagram.findNodeForKey(link.data.from);
+        if (fromnode.findNodesOutOf().count > 1 || fromnode.findNodesInto().count > 1) {
+            e.diagram.model.removeLinkData(link.data)
+        }
+        var tonode = e.diagram.findNodeForKey(link.data.to);
+        if (tonode.findNodesOutOf().count > 1 || tonode.findNodesInto().count > 1) {
+            e.diagram.model.removeLinkData(link.data)
+        }
+    });
 
     myDiagramModalInputTable.addDiagramListener("LinkDrawn", function (e) {
         var link = e.subject;
@@ -121,13 +129,13 @@ $(document).ready(function () {
                 var relationType = storedLink.data.relationType;
                 var res, re, r;
                 if (typeof relationType !== "undefined") {
-                    res = relationType.match(/innerJoin/) + relationType.match(/fullJoin/) + relationType.match(/rightJoin/)
-                            + relationType.match(/leftJoin/) + relationType.match(/fullOuter/) + relationType.match(/leftOuter/)
-                            + relationType.match(/rightOuter/);
+                    res = relationType.match(/InnerJoin/) + relationType.match(/FullJoin/) + relationType.match(/RightJoin/)
+                            + relationType.match(/LeftJoin/) + relationType.match(/FullOuter/) + relationType.match(/LeftOuter/)
+                            + relationType.match(/RightOuter/);
                     res = res.replace(/null/g, "");
                     res = res.replace(/0/g, "");
                 } else {
-                    res = "innerJoin";
+                    res = "InnerJoin";
                 }
 
 
@@ -137,12 +145,12 @@ $(document).ready(function () {
                 if ((diagram.findNodeForKey(storedLink.data.from).data.group === toNodeGroup &&
                 diagram.findNodeForKey(storedLink.data.to).data.group === fromNodeGroup)) {
                     diagram.model.setDataProperty(linkData, "toolTipText",
-                    (res.toUpperCase() + ": " + diagram.findNodeForKey(toNodeGroup).data.WorkspaceTableName + "." + toNode.data.columnname + " = " + diagram.findNodeForKey(fromNodeGroup).data.WorkspaceTableName + "." + fromNode.data.columnname));
+                    (res + ": " + diagram.findNodeForKey(toNodeGroup).data.WorkspaceTableName + "." + toNode.data.columnname + " = " + diagram.findNodeForKey(fromNodeGroup).data.WorkspaceTableName + "." + fromNode.data.columnname));
                     diagram.model.setDataProperty(linkData, "to", fromNode.data.key);
                     diagram.model.setDataProperty(linkData, "from", toNode.data.key);
                 } else {
                     diagram.model.setDataProperty(linkData, "toolTipText",
-                    (res.toUpperCase() + ": " + diagram.findNodeForKey(fromNodeGroup).data.WorkspaceTableName + "." + fromNode.data.columnname + " = " + diagram.findNodeForKey(toNodeGroup).data.WorkspaceTableName + "." + toNode.data.columnname));
+                    (res + ": " + diagram.findNodeForKey(fromNodeGroup).data.WorkspaceTableName + "." + fromNode.data.columnname + " = " + diagram.findNodeForKey(toNodeGroup).data.WorkspaceTableName + "." + toNode.data.columnname));
                 }
                 diagram.commitTransaction("set link");
                 updateLink = false;
@@ -151,47 +159,6 @@ $(document).ready(function () {
         });
         // 
     });
-
-    /* myDiagramModalInputTable.addDiagramListener("LinkDrawn", function (e) {
-         var link = e.subject;
-         var linkData = link.data;
-         var fromNode = myDiagramModalInputTable.findNodeForKey(linkData.from);
-         var toNode = myDiagramModalInputTable.findNodeForKey(linkData.to);
-         var fromNodeGroup = fromNode.data.group;
-         var toNodeGroup = toNode.data.group;
-         var updateLink = true;
- 
-         myDiagramModalInputTable.links.each(function (storedLink) {
- 
-             if (updateLink && storedLink.data !== null && ((myDiagramModalInputTable.findNodeForKey(storedLink.data.from).data.group === fromNodeGroup &&
-                 myDiagramModalInputTable.findNodeForKey(storedLink.data.to).data.group === toNodeGroup) ||
-                 (myDiagramModalInputTable.findNodeForKey(storedLink.data.from).data.group === toNodeGroup &&
-                 myDiagramModalInputTable.findNodeForKey(storedLink.data.to).data.group === fromNodeGroup))) {
-                 var relationType = storedLink.data.relationType;
-                 var res, re, r;
-                 if (typeof relationType !== "undefined") {
-                     res = relationType.match(/innerJoin/) + relationType.match(/fullJoin/) + relationType.match(/rightJoin/)
-                             + relationType.match(/leftJoin/) + relationType.match(/fullOuter/) + relationType.match(/leftOuter/)
-                             + relationType.match(/rightOuter/);
-                     res = res.replace(/null/g, "");
-                     res = res.replace(/0/g, "");
-                 } else {
-                     res = "innerJoin";
-                 }
- 
- 
-                 myDiagramModalInputTable.startTransaction("set node");
-                 myDiagramModalInputTable.model.setDataProperty(linkData, "relationType", res);
-                 myDiagramModalInputTable.model.setDataProperty(linkData, "toolTipText",
-                     (res.toUpperCase() + ": " + myDiagramModalInputTable.findNodeForKey(fromNodeGroup).data.WorkspaceTableName + "." + fromNode.data.columnname + " = " + myDiagramModalInputTable.findNodeForKey(toNodeGroup).data.WorkspaceTableName + "." + toNode.data.columnname));
-                 myDiagramModalInputTable.commitTransaction("set node");
-                 updateLink = false;
-             }
- 
-         });
-         // 
-     });    */
-
 
     $("#dock .undock").click(function () {
         $(this).find("ul.free").animate({ left: "-240px" }, 200);
@@ -370,7 +337,7 @@ $(document).ready(function () {
         var linksHash = {};
         myDiagramModalInputTable.nodes.each(function (node) {
             if (node.data.category == "Table") {
-               
+
                 var isConnected = false;
                 node.memberParts.each(function (column) {
                     if (column.findLinksConnected().count != 0) {
@@ -378,9 +345,9 @@ $(document).ready(function () {
                         column.findLinksConnected().each(function (link) {
                             if (typeof linksHash[link.data.toolTipText] === "undefined") {
                                 var relationType = link.data.toolTipText;
-                                var res = relationType.match(/INNERJOIN/) + relationType.match(/FULLJOIN/) + relationType.match(/RIGHTJOIN/)
-                                               + relationType.match(/LEFTJOIN/) + relationType.match(/FULLOUTER/) + relationType.match(/LEFTOUTER/)
-                                               + relationType.match(/RIGHTOUTER/);
+                                var res = relationType.match(/InnerJoin/) + relationType.match(/FullJoin/) + relationType.match(/RightJoin/)
+                                               + relationType.match(/LeftJoin/) + relationType.match(/FullOuter/) + relationType.match(/LeftOuter/)
+                                               + relationType.match(/RightOuter/);
                                 res = res.replace(/null/g, "");
                                 res = res.replace(/0/g, "");
 
@@ -392,26 +359,26 @@ $(document).ready(function () {
                                     joinType: res,
                                     joinExpression: expression
                                 });
-                                linksHash[link.data.toolTipText]= link.data;
+                                linksHash[link.data.toolTipText] = link.data;
                             }
 
                         });
-                    } 
+                    }
                 });
                 if (isConnected === false) {
                     currentStep.data.mappings.push({
-                        joinType: "CROSS JOIN",
+                        joinType: "CrossJoin",
                         joinExpression: node.data.WorkspaceTableName
                     });
                 }
-            } 
+            }
 
         });
 
         var modalInputTables = myDiagramModalInputTable.model.nodeDataArray;
         var inputTables = [];
         for (i = 0; i < modalInputTables.length; i++) {
-            
+
             if (modalInputTables[i].category == "Table") {
                 inputTables.push(Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(JSON.parse(JSON.stringify(modalInputTables[i]))));
             }
@@ -509,7 +476,38 @@ $(document).ready(function () {
     }
 
     ns.loadFileColumns = function () {
-        Ciel.Process.Api.GetFileColumns(modelData.node.data.FileType, modelData.node.data.FilePath, function (columnsList) {
+        var nodeData = modelData.node.data;
+        var fileInfo = {};
+        switch (nodeData.FileType.toUpperCase()) {
+            case "CSV":
+            case "TXT":
+                fileInfo.FileType = nodeData.FileType;
+                fileInfo.FilePath = nodeData.FilePath;
+                $.each(modelData.fileAttributes(), function (index, attr) {
+                    switch (attr.attributeName) {
+                        case "Column Separator":
+                            fileInfo.ColumnSeparator = attr.attributeValue();
+                            break;
+                        case "Row Separator":
+                            fileInfo.RowSeparator = attr.attributeValue();
+                            break;
+                        case "Header Rows":
+                            fileInfo.HeaderRows = attr.attributeValue();
+                            break;
+                    }
+                });
+                break;
+
+            case "XLSX":
+            case "XLS":
+                fileInfo = {
+                    'FileType': nodeData.FileType,
+                    'FilePath': nodeData.FilePath
+                }
+                break;
+        }
+
+        Ciel.Process.Api.GetFileColumns(fileInfo, function (columnsList) {
             if (modelData.isColumnHeadingPresent() === true) {
                 modelData.fileColumns(columnsList);
             }
@@ -891,13 +889,13 @@ $(document).ready(function () {
             });
 
         canvas.addDiagramListener("LinkDrawn", function (e) {
-            debugger;
+            
             var link = e.subject;
             var diagram = e.diagram;
             var stepModalInputTables;
             var fromNode = diagram.findNodeForKey(link.data.from);
             var toNode = diagram.findNodeForKey(link.data.to);
-            
+
             if (fromNode.data.category != "File") {
                 diagram.startTransaction("addData");
                 diagram.model.setDataProperty(fromNode.data, "to", toNode.data.key);
@@ -910,7 +908,7 @@ $(document).ready(function () {
                 stepModalInputTables = JSON.parse(JSON.stringify(toNode.data.modalInputTablesMapping));
                 var lastkey = stepModalInputTables.nodeDataArray[stepModalInputTables.nodeDataArray.length - 1].key;
                 var lastGroupKey = stepModalInputTables.nodeDataArray[stepModalInputTables.nodeDataArray.length - 1].group;
-                var lastGroupLoc="";
+                var lastGroupLoc = "";
                 for (i = 0; i < stepModalInputTables.nodeDataArray.length; i++) {
                     if (stepModalInputTables.nodeDataArray[i].category === "Table" && stepModalInputTables.nodeDataArray[i].key === lastGroupKey) {
                         lastGroupLoc = stepModalInputTables.nodeDataArray[i].loc;
@@ -928,24 +926,39 @@ $(document).ready(function () {
                 diagram.model.setDataProperty(toNode.data, "modalInputTablesMapping", stepModalInputTables);
                 diagram.commitTransaction("addingTable");
             }
-           
+
 
         });
 
         canvas.addDiagramListener("SelectionDeleting", function (e) {
-            debugger;
             var diagram = e.diagram;
             e.subject.each(function (node) {
-                node.findNodesOutOf().each(function (n) {
-                    diagram.startTransaction("deleteTable");
-                    if (n.data.category === "Step" && n.data.text === "Join") {
-                        diagram.model.setDataProperty(n.data, "modalOutputTablesMapping", undefined);
-                        diagram.model.setDataProperty(n.data, "modalInputTablesMapping", undefined);
-                        // node.data.modalOutputTablesMapping = undefined;
-                        // node.data.modalInputTablesMapping = undefined;
+                if (node.type.Ob !== "Link") {
+                    node.findNodesConnected().each(function (n) {
+                        diagram.startTransaction("deleteTable");
+                        if (n.data.category === "Step" && n.data.text === "Join") {
+                            diagram.model.setDataProperty(n.data, "modalOutputTablesMapping", undefined);
+                            diagram.model.setDataProperty(n.data, "modalInputTablesMapping", undefined);
+                        }
+
+                        diagram.commitTransaction("deleteTable");
+                    });
+                } else {
+                    if (node.toNode.data.category === "Step" && node.toNode.data.text === "Join") {
+                        diagram.startTransaction("deleteTable");
+                        diagram.model.setDataProperty(node.toNode.data, "modalOutputTablesMapping", undefined);
+                        diagram.model.setDataProperty(node.toNode.data, "modalInputTablesMapping", undefined);
+                        diagram.commitTransaction("deleteTable");
                     }
-                    diagram.commitTransaction("deleteTable");
-                })
+
+                    if (node.fromNode.data.category === "Step" && node.fromNode.data.text === "Join") {
+                        diagram.startTransaction("deleteTable");
+                        diagram.model.setDataProperty(node.fromNode.data, "modalOutputTablesMapping", undefined);
+                        diagram.model.setDataProperty(node.fromNode.data, "modalInputTablesMapping", undefined);
+                        diagram.commitTransaction("deleteTable");
+                    }
+
+                }
             });
 
 
@@ -2048,6 +2061,7 @@ $(document).ready(function () {
             $("#btnSave").removeClass('button').addClass('buttonDisabled').prop("disabled", true);
 
             Ciel.Process.Api.PostJob(vmSave, function (newModel) {
+                $('#job-addedit-modal-errorresult').empty(); //clear validation message
                 Ciel.Process.ProcessDesign.CreateJob.jobId = newModel.JOBID;
                 jobViewModel.JOBID(newModel.JOBID);
                 jobViewModel.CREATEDATE(newModel.CREATEDATE);
@@ -2078,22 +2092,31 @@ $(document).ready(function () {
         if (isHideTooltip == undefined || isHideTooltip == null) isHideTooltip = false;
 
         function inputErrorFunc(err) {
+            $('#job-addedit-modal-errorresult').empty();
             for (var i in err) {
                 var haselement = $('#input-' + err[i].PropertyName).length > 0;
 
                 var msg = "<ul>";
-                if (!haselement) {
-                    msg += "<li><strong>" + err[i].PropertyName + "</strong></li>";
+                if (err[i].PropertyName == "JOBREPEAT") {
+                    for (var c in err[i].Messages) {
+                        msg += "<li><font color=\"#ff0000\">" + err[i].Messages[c] + "</font></li>";
+                        msg += "<br/>"
+                    }
                 }
-                for (var c in err[i].Messages) {
-                    msg += "<li>" + err[i].Messages[c] + "</li>";
+                else {
+                    if (!haselement) {
+                        // msg += "<li><strong>" + err[i].PropertyName + "</strong></li>";
+                    }
+                    for (var c in err[i].Messages) {
+                        msg += "<li>" + err[i].Messages[c] + "</li>";
+                    }
                 }
                 msg += "</ul>";
 
                 if (!haselement) {
                     $('#job-addedit-modal-errorresult').append(msg);
-                } else {
-
+                }
+                else {
                     $('#input-' + err[i].PropertyName).addClass("has-error");
                     $('#input-' + err[i].PropertyName + " > .form-control").tooltip({ html: true, title: msg, placement: 'right' }).tooltip('show');
                     if (isHideTooltip) {
@@ -2104,7 +2127,6 @@ $(document).ready(function () {
                             $('#job-addedit-modal .form-control').tooltip('hide');
                         }, 3000);
                     }
-
                 }
             }
         };
@@ -2242,6 +2264,9 @@ $(document).ready(function () {
                     }
                 }
             });
+
+            if (typeof currentStep.data.modalInputTablesMapping !== "undefined") {
+            }
             var TableInJson = [];
             var nodeDataArray = [];
             nodeDataArray = Ciel.Process.ProcessDesign.CreateJob.getTablesInGroupFormat(JSON.parse(JSON.stringify(tablesToCurrentStep)));
@@ -2272,18 +2297,21 @@ $(document).ready(function () {
             });
             TableInJson = JSON.parse(JSON.stringify(tablesFromCurrentStep));
             if (TableInJson.length != 0) {
+
                 nodeDataArray.push(Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(TableInJson[0]));
                 Array.prototype.push.apply(nodeDataArray, Ciel.Process.ProcessDesign.CreateJob.getColumnsFromTable(TableInJson[0], 0));
                 select.value = TableInJson[0].WorkspaceTableName;
             }
 
-
-
-
             linkDataArray = [];
             addTemplateForDiagram(myDiagramModalOutputTable, false);
             myDiagramModalOutputTable.linkTemplate = Ciel.Process.ProcessDesign.CreateJob.linkTemplateForMapping();
             myDiagramModalOutputTable.model = new go.GraphLinksModel(nodeDataArray, linkDataArray);
+            if (TableInJson.length != 0) {
+                myDiagramModalOutputTable.startTransaction("reposition output table");
+                myDiagramModalOutputTable.model.setDataProperty(myDiagramModalOutputTable.model.nodeDataArray[1], "loc", "500 0");
+                myDiagramModalOutputTable.commitTransaction("reposition output table");
+            }
 
         }
 
@@ -2337,7 +2365,7 @@ $(document).ready(function () {
         "linkingTool.linkValidation": function (from, fromPort, to, toPort, link) {
 
             if (from.findLinksBetween(to, null, null).count == 1) return false;
-
+            console.log(from.containingGroup.data);
             return from.containingGroup !== to.containingGroup;
         },
         "commandHandler.canDeleteSelection": function () {
@@ -2385,7 +2413,7 @@ $(document).ready(function () {
                 goJs(go.TextBlock,
                   {
                       alignment: go.Spot.Left,
-                      editable: true,
+                      editable: false,
                       margin: 5,
                       font: "bold 16px sans-serif",
                       opacity: 0.75,
@@ -2530,7 +2558,7 @@ $(document).ready(function () {
             relinkableTo: false,
             reshapable: false,
             resegmentable: true,
-            selectionAdorned: false,
+            selectionAdorned: true,
             // mouse-overs subtly highlight links:
             mouseEnter: function (e, link) { link.findObject("HIGHLIGHT").stroke = "rgba(30,144,255,0.2)"; },
             mouseLeave: function (e, link) { link.findObject("HIGHLIGHT").stroke = "transparent"; },
@@ -2551,24 +2579,15 @@ $(document).ready(function () {
                   )
               ),  // end Horizontal Panel
 
-                Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("innerJoin"),
-                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("fullJoin"),
-                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("leftJoin"),
-                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("rightJoin"),
-                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("fullOuter"),
-                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("leftOuter"),
-                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("rightOuter")
+                Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("InnerJoin"),
+                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("FullJoin"),
+                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("LeftJoin"),
+                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("RightJoin"),
+                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("FullOuter"),
+                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("LeftOuter"),
+                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("RightOuter")
             )// end Vertical Panel
-            ) //end of adornment
-            /*  goJs(go.Adornment, "Vertical",
-                   Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("innerJoin"),
-                   Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("fullJoin"),
-                   Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("leftJoin"),
-                   Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("rightJoin"),
-                   Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("fullOuter"),
-                   Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("leftOuter"),
-                   Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("rightOuter")
-          ) */
+            )
         },
         new go.Binding("points").makeTwoWay(),
         goJs(go.Shape,  // the highlight shape, normally transparent
@@ -2586,13 +2605,13 @@ $(document).ready(function () {
                       {
                           name: 'Picture',
                           desiredSize: new go.Size(20, 20),
-                          source: CONFIG_APP_BASEURL + "/Areas/Process/Images/innerJoin.png",
+                          source: CONFIG_APP_BASEURL + "/Areas/Process/Images/InnerJoin.png",
                           toolTip:  // define a tooltip for each node that displays the color as text
                             goJs(go.Adornment, "Auto",
                               goJs(go.Shape, { fill: "#FFFFCC" }),
                                goJs(go.TextBlock, new go.Binding("text", "", function (obj) {
-                                   var relationType = "innerJoin";
-                                   return (relationType.toUpperCase() + ": "
+                                   var relationType = "InnerJoin";
+                                   return (relationType + ": "
                                        + myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.from).data.group).data.WorkspaceTableName + "." +
                                        myDiagramModalInputTable.findNodeForKey(obj.from).data.columnname + " = " +
                                        myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.to).data.group).data.WorkspaceTableName +
@@ -2633,27 +2652,27 @@ $(document).ready(function () {
                                 goJs(go.TextBlock, new go.Binding("text", "", function (obj) {
                                     var toolTipText;
                                     switch (relationType) {
-                                        case "rightOuter":
+                                        case "RightOuter":
                                             toolTipText = "Select all data from: " + myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.to).data.group).data.WorkspaceTableName + ' exclude matching data from ' +
                                        myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.from).data.group).data.WorkspaceTableName;
                                             break;
-                                        case "fullOuter":
+                                        case "FullOuter":
                                             toolTipText = "Select all data from both table exlude matching data from both.";
                                             break;
-                                        case "leftOuter":
+                                        case "LeftOuter":
                                             toolTipText = "Select all data from: " + myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.from).data.group).data.WorkspaceTableName + ' exclude matching data from ' +
                                                 myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.to).data.group).data.WorkspaceTableName;
                                             break;
-                                        case "rightJoin":
+                                        case "RightJoin":
                                             toolTipText = "Select all data from: " + myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.to).data.group).data.WorkspaceTableName;
                                             break;
-                                        case "leftJoin":
+                                        case "LeftJoin":
                                             toolTipText = "Select all data from: " + myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.from).data.group).data.WorkspaceTableName;
                                             break;
-                                        case "fullJoin":
+                                        case "FullJoin":
                                             toolTipText = "Select all data from both tables";
                                             break;
-                                        case "innerJoin":
+                                        case "InnerJoin":
                                             toolTipText = "Select matching data from both tables.";
                                             break;
                                             // add the default keyword here
@@ -2734,6 +2753,8 @@ $(document).ready(function () {
                      fromSpot: spot, toSpot: spot,  // declare where links may connect at this port
                      fromLinkable: output, toLinkable: input,  // declare whether the user may draw links to/from here
                      cursor: "pointer",// show a different cursor to indicate potential link point
+                     fromMaxLinks: 1,
+                     toMaxLinks: 1,
 
                  })
     }
@@ -2806,12 +2827,21 @@ $(document).ready(function () {
                     var remove = false;
                     myDiagramModalOutputTable.nodes.each(function (node) {
                         if (node.data.columnid == n.data.columnid && outputModel.findNodeDataForKey(node.data.group).WorkspaceTableName == "Selected Column") {
-                            newNodeColumn = node.data;
+                            newNodeColumn = node;
                             remove = true;
                         }
                     });
 
-                    if (remove) { outputModel.removeNodeData(newNodeColumn); }
+                    if (remove) {
+                        var linkToRemove;
+                        newNodeColumn.findLinksConnected().each(function (link) {
+                            linkToRemove = link;
+                        })
+                        if (linkToRemove !== undefined) {
+                            outputModel.removeLinkData(linkToRemove.data);
+                        }
+                        outputModel.removeNodeData(newNodeColumn.data);
+                    }
                 }
             }
         });
@@ -2857,7 +2887,7 @@ $(document).ready(function () {
                 return CONFIG_APP_BASEURL + "/Areas/Process/Images/" + relationType + ".png";
             }
         }
-        else { return CONFIG_APP_BASEURL + "/Areas/Process/Images/innerJoin.png"; }
+        else { return CONFIG_APP_BASEURL + "/Areas/Process/Images/InnerJoin.png"; }
     }
 
     ns.highlightGroup = function (e, grp, show) {
@@ -2898,7 +2928,7 @@ $(document).ready(function () {
                 e.diagram.startTransaction("changed relation");
                 model.setDataProperty(link.data, "relationType", newSource);
                 model.setDataProperty(link.data, "toolTipText",
-                  (newSource.toUpperCase() + ": " + fromNodeTable.WorkspaceTableName + "." + fromNode.columnname + " = " + toNodeTable.WorkspaceTableName + "." + toNode.columnname));
+                  (newSource + ": " + fromNodeTable.WorkspaceTableName + "." + fromNode.columnname + " = " + toNodeTable.WorkspaceTableName + "." + toNode.columnname));
                 e.diagram.commitTransaction("changed relation");
             }
         });
@@ -2960,7 +2990,7 @@ $(document).ready(function () {
     }
 
     ns.getTablesInGroupFormat = function (TableInJson) {
-        debugger;
+        
         var tables = [];
         var numberOfTables = TableInJson.length;
         if ((typeof numberOfTables) !== "undefined") {
@@ -2988,7 +3018,7 @@ $(document).ready(function () {
             tables.push(defaultColumn);
             Array.prototype.push.apply(tables, Ciel.Process.ProcessDesign.CreateJob.getColumnsFromTable(TableInJson, 100));
         }
-        
+
 
         return tables;
     }
