@@ -2525,7 +2525,7 @@ $(document).ready(function () {
                                   ))),
                          //// four named ports, one on each side:
 
-                          Ciel.Process.ProcessDesign.CreateJob.makePortForColumn("L", go.Spot.Left, true, true),
+                          Ciel.Process.ProcessDesign.CreateJob.makePortForColumn("L", go.Spot.Left, false, true),
                           Ciel.Process.ProcessDesign.CreateJob.makePortForColumn("R", go.Spot.Right, true, true)
                        );
     }
@@ -2793,10 +2793,10 @@ $(document).ready(function () {
                      fromSpot: spot, toSpot: spot,  // declare where links may connect at this port
                      fromLinkable: output, toLinkable: input,  // declare whether the user may draw links to/from here
                      cursor: "pointer",// show a different cursor to indicate potential link point
-                     fromMaxLinks: 1,
-                     toMaxLinks: 1,
+                    // fromMaxLinks: 1,
+                    // toMaxLinks: 1,
 
-                 })
+                 });
     }
 
     ns.updatedColumnInTable = function (e, obj) {
