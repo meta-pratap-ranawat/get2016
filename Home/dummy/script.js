@@ -111,6 +111,7 @@ $(document).ready(function () {
     });
 
     myDiagramModalInputTable.addDiagramListener("LinkDrawn", function (e) {
+        debugger;
         var link = e.subject;
         var diagram = e.diagram;
         var linkData = link.data;
@@ -119,6 +120,17 @@ $(document).ready(function () {
         var fromNodeGroup = fromNode.data.group;
         var toNodeGroup = toNode.data.group;
         var updateLink = true;
+
+        if (link.fromNode.data.columntype !== link.toNode.data.columntype) {
+            //changing the link color;
+            diagram.startTransaction("set link");
+            diagram.model.setDataProperty(linkData, "color", "#FF0000");
+            diagram.commitTransaction("set link");
+        } else {
+            diagram.startTransaction("set link");
+            diagram.model.setDataProperty(linkData, "color", "gray");
+            diagram.commitTransaction("set link");
+        }
 
         myDiagramModalInputTable.links.each(function (storedLink) {
 
@@ -309,6 +321,7 @@ $(document).ready(function () {
     });
 
     $("#save_mappings").on('click', function () {
+        
         currentStep.data.modalOutputTablesMapping = JSON.parse(myDiagramModalOutputTable.model.toJSON());
         currentStep.data.modalInputTablesMapping = JSON.parse(myDiagramModalInputTable.model.toJSON());
         var modalOutputTable = {};
@@ -331,6 +344,30 @@ $(document).ready(function () {
                 modalOutputTable = node.data;
             }
         });
+
+        var isValidMappings = true;
+        myDiagramModalInputTable.links.each(function (link) {
+            if (link.data.color === "#FF0000") {
+                isValidMappings = false;
+            }
+        });
+        myDiagramModalOutputTable.links.each(function (link) {
+            if (link.data.color === "#FF0000") {
+                isValidMappings = false;
+            }
+        });
+        if (!isValidMappings) {
+            alert(" joins are invalid(data type are not matching)");
+            canvas.startTransaction("setColor");
+            canvas.model.setDataProperty(currentStep.data, "color", "#FF0000");
+            canvas.commitTransaction("setColor");
+        } else {
+            if (currentStep.data.color === "#FF0000") {
+                canvas.startTransaction("setColor");
+                canvas.model.setDataProperty(currentStep.data, "color", "#00A9C9");
+                canvas.commitTransaction("setColor");
+            }
+        }
 
         // adding mappings in order of tables
         currentStep.data.mappings = [];         // 3# mappings
@@ -939,6 +976,7 @@ $(document).ready(function () {
                         if (n.data.category === "Step" && n.data.text === "Join") {
                             diagram.model.setDataProperty(n.data, "modalOutputTablesMapping", undefined);
                             diagram.model.setDataProperty(n.data, "modalInputTablesMapping", undefined);
+                            diagram.model.setDataProperty(n.data, "color", "#FF0000");
                         }
 
                         diagram.commitTransaction("deleteTable");
@@ -948,6 +986,7 @@ $(document).ready(function () {
                         diagram.startTransaction("deleteTable");
                         diagram.model.setDataProperty(node.toNode.data, "modalOutputTablesMapping", undefined);
                         diagram.model.setDataProperty(node.toNode.data, "modalInputTablesMapping", undefined);
+                        diagram.model.setDataProperty(n.data, "color", "#FF0000");
                         diagram.commitTransaction("deleteTable");
                     }
 
@@ -955,6 +994,7 @@ $(document).ready(function () {
                         diagram.startTransaction("deleteTable");
                         diagram.model.setDataProperty(node.fromNode.data, "modalOutputTablesMapping", undefined);
                         diagram.model.setDataProperty(node.fromNode.data, "modalInputTablesMapping", undefined);
+                        diagram.model.setDataProperty(n.data, "color", "#FF0000");
                         diagram.commitTransaction("deleteTable");
                     }
 
@@ -1404,7 +1444,8 @@ $(document).ready(function () {
                       row: 1, column: 1, name: "shape", fill: "#FFFFFF", stroke: "#00A9C9", minSize: new go.Size(160, 70), cursor: "move", strokeWidth: 4
                   },
                  new go.Binding('width').makeTwoWay(),
-                    new go.Binding('height').makeTwoWay()),
+                    new go.Binding('height').makeTwoWay(),
+                    new go.Binding("stroke","color").makeTwoWay()),
               // the main object is a Panel that surrounds a TextBlock with a rectangular Shape
               goJs(go.Panel, "Table",
                  { row: 1, column: 1 },
@@ -2365,7 +2406,6 @@ $(document).ready(function () {
         "linkingTool.linkValidation": function (from, fromPort, to, toPort, link) {
 
             if (from.findLinksBetween(to, null, null).count == 1) return false;
-            console.log(from.containingGroup.data);
             return from.containingGroup !== to.containingGroup;
         },
         "commandHandler.canDeleteSelection": function () {
@@ -2593,7 +2633,7 @@ $(document).ready(function () {
         goJs(go.Shape,  // the highlight shape, normally transparent
           { isPanelMain: true, strokeWidth: 2, stroke: "transparent", name: "HIGHLIGHT" }),
         goJs(go.Shape,  // the link path shape
-          { isPanelMain: true, stroke: "gray", strokeWidth: 1 }),
+          { isPanelMain: true, stroke: "gray", strokeWidth: 1 }, new go.Binding("stroke","color").makeTwoWay()),
         //goJs(go.Shape,  // the arrowhead
         //  { toArrow: "standard", stroke: "gray", strokeWidth: 3, fill: "gray" }),
         goJs(go.Panel, "Auto",  // the link label, normally not visible
@@ -2809,6 +2849,7 @@ $(document).ready(function () {
                     var tableName = myDiagramModalInputTable.model.findNodeDataForKey(n.data.group).WorkspaceTableName;
 
                     var newNodeColumn = {};
+                    var removeColumn = {};
                     newNodeColumn.group = key;
                     newNodeColumn.category = "Column";
                     newNodeColumn.columnname = tableName + "." + n.data.columnname;
@@ -2817,10 +2858,16 @@ $(document).ready(function () {
                     var add = true;
                     myDiagramModalOutputTable.nodes.each(function (node) {
                         if (node.data.columnid == n.data.columnid && outputModel.findNodeDataForKey(node.data.group).WorkspaceTableName == "Selected Column") { // depens on columnid if everycolumn in diagram has unique id  then modify here
-                            add = false;
+                            add = false; removeColumn = node.data;
                         }
                     });
-                    if (add) { outputModel.addNodeData(newNodeColumn); }
+                    if (add) {
+                        outputModel.addNodeData(newNodeColumn);
+                    }
+                    else {
+                        outputModel.removeNodeData(removeColumn);
+                        outputModel.addNodeData(newNodeColumn);
+                    }
 
                 } else {
                     var newNodeColumn = {};
