@@ -49,15 +49,20 @@ $(document).ready(function () {
         return true;
 
     }
+   // myDiagramModalInputTable.toolManager.contextMenuTool.mouseUpTools
+
     tool.isValidLink = function (fromnode, fromport, tonode, toport) {
-        
         var shortCheck = false;
+        if (fromnode.containingGroup === tonode.containingGroup) {
+            return false;
+        }
+
         fromnode.containingGroup.findExternalNodesConnected().each(function (node) {
             if (node.containingGroup === tonode.containingGroup && fromnode.findLinksBetween(tonode, null, null).count == 0) {
                 shortCheck = true;
-            }  
+            }
         });
-       
+
 
         if (shortCheck) {
             return true;
@@ -72,21 +77,21 @@ $(document).ready(function () {
 
             while (queue.length) {
                 var vertex = queue.shift();
-                    vertex.findExternalLinksConnected().each(function (edge) {
+                vertex.findExternalLinksConnected().each(function (edge) {
 
-                        if (typeof visitedLink[edge]==="undefined") {
-                            visitedLink[edge] = true;
-                            var node = (vertex===edge.fromNode.containingGroup)?edge.toNode.containingGroup : edge.fromNode.containingGroup; 
-                            console.log(edge);
-                            if (typeof visitedNode[node] === "undefined") {
-                                queue.push(node);
-                                visitedNode[node] = true;
-                                console.log("visting "+node.data.WorkspaceTableName);
-                            }
-                       
-                            paths[edge] = vertex;
+                    if (typeof visitedLink[edge] === "undefined") {
+                        visitedLink[edge] = true;
+                        var node = (vertex === edge.fromNode.containingGroup) ? edge.toNode.containingGroup : edge.fromNode.containingGroup;
+                        
+                        if (typeof visitedNode[node] === "undefined") {
+                            queue.push(node);
+                            visitedNode[node] = true;
+                                
                         }
-                    });
+
+                        paths[edge] = vertex;
+                    }
+                });
             }
 
             if (typeof visitedNode[tonode.containingGroup] === "undefined") {
@@ -97,9 +102,18 @@ $(document).ready(function () {
         }
     }
 
+    var toolForOutput = myDiagramModalOutputTable.toolManager.linkingTool;
+    toolForOutput.isValidFrom = function (fromnode, fromport) {
+        if (fromnode.containingGroup.data.WorkspaceTableName !== "Selected Column") {
+            return false;
+        }
+        return true;
+    }
 
     myDiagramModalOutputTable.addDiagramListener("LinkDrawn", function (e) {
         var link = e.subject;
+        var diagram = e.diagram;
+        var linkData = link.data;
         var fromnode = e.diagram.findNodeForKey(link.data.from);
         if (fromnode.findNodesOutOf().count > 1 || fromnode.findNodesInto().count > 1) {
             e.diagram.model.removeLinkData(link.data)
@@ -108,10 +122,20 @@ $(document).ready(function () {
         if (tonode.findNodesOutOf().count > 1 || tonode.findNodesInto().count > 1) {
             e.diagram.model.removeLinkData(link.data)
         }
+
+        if (link.fromNode.data.columntype !== link.toNode.data.columntype) {
+            //changing the link color;
+            diagram.startTransaction("set link");
+            diagram.model.setDataProperty(linkData, "color", "#FF0000");
+            diagram.commitTransaction("set link");
+        } else {
+            diagram.startTransaction("set link");
+            diagram.model.setDataProperty(linkData, "color", "gray");
+            diagram.commitTransaction("set link");
+        }
     });
 
     myDiagramModalInputTable.addDiagramListener("LinkDrawn", function (e) {
-        debugger;
         var link = e.subject;
         var diagram = e.diagram;
         var linkData = link.data;
@@ -120,6 +144,7 @@ $(document).ready(function () {
         var fromNodeGroup = fromNode.data.group;
         var toNodeGroup = toNode.data.group;
         var updateLink = true;
+        
 
         if (link.fromNode.data.columntype !== link.toNode.data.columntype) {
             //changing the link color;
@@ -141,11 +166,8 @@ $(document).ready(function () {
                 var relationType = storedLink.data.relationType;
                 var res, re, r;
                 if (typeof relationType !== "undefined") {
-                    res = relationType.match(/InnerJoin/) + relationType.match(/FullJoin/) + relationType.match(/RightJoin/)
-                            + relationType.match(/LeftJoin/) + relationType.match(/FullOuter/) + relationType.match(/LeftOuter/)
-                            + relationType.match(/RightOuter/);
-                    res = res.replace(/null/g, "");
-                    res = res.replace(/0/g, "");
+                    var partIndex = relationType.indexOf(":");
+                    res = relationType.substr(0, partIndex);
                 } else {
                     res = "InnerJoin";
                 }
@@ -164,12 +186,45 @@ $(document).ready(function () {
                     diagram.model.setDataProperty(linkData, "toolTipText",
                     (res + ": " + diagram.findNodeForKey(fromNodeGroup).data.WorkspaceTableName + "." + fromNode.data.columnname + " = " + diagram.findNodeForKey(toNodeGroup).data.WorkspaceTableName + "." + toNode.data.columnname));
                 }
+                
                 diagram.commitTransaction("set link");
                 updateLink = false;
             }
 
         });
         // 
+        console.log(link.fromNode.containingGroup.data.WorkspaceTableName);
+        if (currentStep.data.inputTablesByOrder.indexOf(link.fromNode.containingGroup) === -1) {
+            currentStep.data.inputTablesByOrder.push(link.fromNode.containingGroup);
+        }
+        if (currentStep.data.inputTablesByOrder.indexOf(link.toNode.containingGroup) === -1) {
+            currentStep.data.inputTablesByOrder.push(link.toNode.containingGroup);
+        }
+        if (typeof currentStep.data.relationExpression[link.fromNode.containingGroup.data.WorkspaceTableName + link.toNode.containingGroup.data.WorkspaceTableName] === "undefined") {
+            currentStep.data.relationExpression[link.fromNode.containingGroup.data.WorkspaceTableName + link.toNode.containingGroup.data.WorkspaceTableName] = [];
+        }
+        currentStep.data.relationExpression[link.fromNode.containingGroup.data.WorkspaceTableName+link.toNode.containingGroup.data.WorkspaceTableName].push(link);
+        
+    });
+    myDiagramModalInputTable.addDiagramListener("SelectionDeleting", function (e) {
+        debugger;
+        var link = e.subject;
+        e.subject.each(function (link) {
+            
+                if (!(link instanceof go.Link)) {
+                    return;
+                }
+            
+                if (link.fromNode.containingGroup.findExternalLinksConnected().count === 1) {
+                    currentStep.data.inputTablesByOrder.splice(currentStep.data.inputTablesByOrder.indexOf(link.fromNode.containingGroup), 1);
+                }
+                if (link.toNode.containingGroup.findExternalLinksConnected().count === 1)  {
+                    currentStep.data.inputTablesByOrder.splice(currentStep.data.inputTablesByOrder.indexOf(link.toNode.containingGroup), 1);
+                }
+
+                currentStep.data.relationExpression[link.fromNode.containingGroup.data.WorkspaceTableName + link.toNode.containingGroup.data.WorkspaceTableName].splice(currentStep.data.relationExpression[link.fromNode.containingGroup.data.WorkspaceTableName + link.toNode.containingGroup.data.WorkspaceTableName].indexOf(link), 1);
+            
+        });
     });
 
     $("#dock .undock").click(function () {
@@ -179,7 +234,7 @@ $(document).ready(function () {
         docked = docked - 1;
 
         $("#content").css("margin-left", "40px");
-
+        Ciel.Process.ProcessDesign.CreateJob.updateDiagram();
     });
 
     /*rightPanel collapse/expand*/
@@ -321,7 +376,7 @@ $(document).ready(function () {
     });
 
     $("#save_mappings").on('click', function () {
-        
+        debugger;
         currentStep.data.modalOutputTablesMapping = JSON.parse(myDiagramModalOutputTable.model.toJSON());
         currentStep.data.modalInputTablesMapping = JSON.parse(myDiagramModalInputTable.model.toJSON());
         var modalOutputTable = {};
@@ -344,6 +399,39 @@ $(document).ready(function () {
                 modalOutputTable = node.data;
             }
         });
+        myDiagramModalInputTable.nodes.each(function (node) {
+            if (node.data.category == "Table" && (currentStep.data.inputTablesByOrder.indexOf(node) === -1)) {
+                currentStep.data.inputTablesByOrder.push(node);
+            }
+        });
+        currentStep.data.fromQuery="From "+currentStep.data.inputTablesByOrder[0].data.WorkspaceTableName;
+        for (i = 1; i < currentStep.data.inputTablesByOrder.length; i++) {
+            var j = i;
+
+            var expressions = "";
+            var relationType = currentStep.data.relationExpression[currentStep.data.inputTablesByOrder[i - 1].data.WorkspaceTableName + currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName][0].data.toolTipText;
+            var partIndex = relationType.indexOf(":");
+            currentStep.data.fromQuery += " "+relationType.substr(0, partIndex)+" "+currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName+" On ";
+
+            while (--j > -1) {
+                var links = currentStep.data.relationExpression[currentStep.data.inputTablesByOrder[j].data.WorkspaceTableName+currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName];
+                if (typeof links !== "undefined" && links.length !== 0) {
+                    for (k = 0; k < links.length; k++) {
+                        
+                        var relationType = links[k].data.toolTipText;
+                        var partIndex = relationType.indexOf(":");
+                        var expression = relationType.substr((partIndex + 2), relationType.length);
+                        if (k == 0) {
+                            expressions += expression;
+                        } else {
+                            expressions += " AND "+expression;
+                        }
+                        
+                    }
+                }
+            }
+            currentStep.data.fromQuery += expressions;
+        }
 
         var isValidMappings = true;
         myDiagramModalInputTable.links.each(function (link) {
@@ -356,71 +444,85 @@ $(document).ready(function () {
                 isValidMappings = false;
             }
         });
+
         if (!isValidMappings) {
-            alert(" joins are invalid(data type are not matching)");
+            alert("There are invalid mappings present in Joins or Column mappings.");
             canvas.startTransaction("setColor");
             canvas.model.setDataProperty(currentStep.data, "color", "#FF0000");
+            canvas.model.setDataProperty(currentStep.data, "toolTipText", "Please Check configuration for this step.");
             canvas.commitTransaction("setColor");
         } else {
             if (currentStep.data.color === "#FF0000") {
                 canvas.startTransaction("setColor");
                 canvas.model.setDataProperty(currentStep.data, "color", "#00A9C9");
+                canvas.model.setDataProperty(currentStep.data, "toolTipText", "Join");
                 canvas.commitTransaction("setColor");
             }
         }
-
-        // adding mappings in order of tables
-        currentStep.data.mappings = [];         // 3# mappings
-        var linksHash = {};
-        myDiagramModalInputTable.nodes.each(function (node) {
-            if (node.data.category == "Table") {
-
-                var isConnected = false;
-                node.memberParts.each(function (column) {
-                    if (column.findLinksConnected().count != 0) {
-                        isConnected = true;
-                        column.findLinksConnected().each(function (link) {
-                            if (typeof linksHash[link.data.toolTipText] === "undefined") {
-                                var relationType = link.data.toolTipText;
-                                var res = relationType.match(/InnerJoin/) + relationType.match(/FullJoin/) + relationType.match(/RightJoin/)
-                                               + relationType.match(/LeftJoin/) + relationType.match(/FullOuter/) + relationType.match(/LeftOuter/)
-                                               + relationType.match(/RightOuter/);
-                                res = res.replace(/null/g, "");
-                                res = res.replace(/0/g, "");
-
-                                var start = relationType.indexOf(":") + 2;
-                                var end = relationType.length;
-
-                                var expression = relationType.substr(start, end);
-                                currentStep.data.mappings.push({
-                                    joinType: res,
-                                    joinExpression: expression
-                                });
-                                linksHash[link.data.toolTipText] = link.data;
-                            }
-
-                        });
-                    }
-                });
-                if (isConnected === false) {
-                    currentStep.data.mappings.push({
-                        joinType: "CrossJoin",
-                        joinExpression: node.data.WorkspaceTableName
-                    });
-                }
-            }
-
-        });
 
         var modalInputTables = myDiagramModalInputTable.model.nodeDataArray;
         var inputTables = [];
         for (i = 0; i < modalInputTables.length; i++) {
 
             if (modalInputTables[i].category == "Table") {
-                inputTables.push(Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(JSON.parse(JSON.stringify(modalInputTables[i]))));
+                inputTables.push(Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(JSON.parse(JSON.stringify(modalInputTables[i]))).WorkspaceTableName);
             }
         }
         currentStep.data["inputTables"] = inputTables;          //1# inputTable to currentStep
+
+        // adding mappings in order of tables
+        currentStep.data.mappings = [];         // 3# mappings
+        var linksHash = {};
+        myDiagramModalInputTable.links.each(function (link) {
+                            
+                                var relationType = link.data.toolTipText;
+                                var partIndex = relationType.indexOf(":");
+                                var res = relationType.substr(0, partIndex);
+                                var expression = relationType.substr((partIndex + 2), relationType.length);
+                                var tableOne = link.fromNode.containingGroup.data.WorkspaceTableName;
+                                var tableTwo = link.toNode.containingGroup.data.WorkspaceTableName;
+                                if (linksHash.hasOwnProperty(tableOne + tableTwo) === false) {
+                                    currentStep.data.mappings.push({
+                                        joinType: res,
+                                        fromTable: tableOne,
+                                        toTable: tableTwo,
+                                        joinExpression: expression
+                                    });
+                                    linksHash[tableOne + tableTwo] = true;
+                                } else {
+                                    function checkMapping(mapping) {
+                                        return mapping.fromTable === tableOne && mapping.toTable === tableTwo;
+                                    }
+                                    currentStep.data.mappings.find(checkMapping).joinExpression+=" AND "+expression;
+                                }
+
+                               
+        });
+
+        //query generating start
+       /* var visited = [];
+        var edges = [];
+        var fromQuery = "";
+        var addEdge = function (vertex1, vertex2) {
+            edges[vertex1].push(vertex2);
+            edges[vertex2].push(vertex1);
+        };
+        for (i = 0; i < currentStep.data.mappings.length; i++) {
+
+            addEdge(currentStep.data.mappings[i].fromTable, currentStep.data.mappings[i].toTable);
+        }
+        var traverseDFS = function (vertex, visited) {
+            visited[vertex] = true;
+            for (var i = 0; i < this.edges[vertex].length; i++) {
+                if (!visited[edges[vertex][i]]) {
+
+                    traverseDFS(edges[vertex][i], visited);
+                }
+            }
+        }; */
+        // query generating end
+       
+        
 
         var outputTable = Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(JSON.parse(JSON.stringify(modalOutputTable)));
         outputTable.isGroup = false;
@@ -450,6 +552,7 @@ $(document).ready(function () {
                 }
             });
             model.removeLinkData(linkToRemove);
+            outputTable.key = currentStepOutputTable.key;
             outputTable.loc = currentStepOutputTable.loc;
             model.removeNodeData(currentStepOutputTable);
         }
@@ -469,6 +572,7 @@ $(document).ready(function () {
             });
             canvas.commitTransaction("add link");
         }
+
         $('#stepModal').modal('hide');
     });
 
@@ -906,6 +1010,14 @@ $(document).ready(function () {
                 "linkingTool.isUnconnectedLinkValid": false,
                 "relinkingTool.isUnconnectedLinkValid": false,
                 "linkingTool.linkValidation": function (from, fromport, to, toport, link) {
+                    if (from.data.category === to.data.category) {
+                        return false;
+                    }
+
+                    if (from.data.category === "FileWithTable" && to.data.category !== "Step") {
+                        return false;
+                    }
+
                     if (from.findLinksBetween(to, null, null).count == 1) {
                         return false;
                     }
@@ -926,7 +1038,6 @@ $(document).ready(function () {
             });
 
         canvas.addDiagramListener("LinkDrawn", function (e) {
-            
             var link = e.subject;
             var diagram = e.diagram;
             var stepModalInputTables;
@@ -972,21 +1083,25 @@ $(document).ready(function () {
             e.subject.each(function (node) {
                 if (node.type.Ob !== "Link") {
                     node.findNodesConnected().each(function (n) {
-                        diagram.startTransaction("deleteTable");
+                       
                         if (n.data.category === "Step" && n.data.text === "Join") {
+                            diagram.startTransaction("deleteTable");
                             diagram.model.setDataProperty(n.data, "modalOutputTablesMapping", undefined);
                             diagram.model.setDataProperty(n.data, "modalInputTablesMapping", undefined);
                             diagram.model.setDataProperty(n.data, "color", "#FF0000");
+                            diagram.model.setDataProperty(n.data, "toolTipText", "Please Check configuration for this step.");
+                            diagram.commitTransaction("deleteTable");
                         }
 
-                        diagram.commitTransaction("deleteTable");
+                        
                     });
                 } else {
                     if (node.toNode.data.category === "Step" && node.toNode.data.text === "Join") {
                         diagram.startTransaction("deleteTable");
                         diagram.model.setDataProperty(node.toNode.data, "modalOutputTablesMapping", undefined);
                         diagram.model.setDataProperty(node.toNode.data, "modalInputTablesMapping", undefined);
-                        diagram.model.setDataProperty(n.data, "color", "#FF0000");
+                        diagram.model.setDataProperty(node.data, "color", "#FF0000");
+                        diagram.model.setDataProperty(node.data, "toolTipText", "Please Check configuration for this step.");
                         diagram.commitTransaction("deleteTable");
                     }
 
@@ -994,7 +1109,8 @@ $(document).ready(function () {
                         diagram.startTransaction("deleteTable");
                         diagram.model.setDataProperty(node.fromNode.data, "modalOutputTablesMapping", undefined);
                         diagram.model.setDataProperty(node.fromNode.data, "modalInputTablesMapping", undefined);
-                        diagram.model.setDataProperty(n.data, "color", "#FF0000");
+                        diagram.model.setDataProperty(node.data, "color", "#FF0000");
+                        diagram.model.setDataProperty(node.data, "toolTipText", "Please Check configuration for this step.");
                         diagram.commitTransaction("deleteTable");
                     }
 
@@ -1437,18 +1553,27 @@ $(document).ready(function () {
             goJs(go.Node, "Table", nodeStyle(),
                   {
                       doubleClick: stepClicked,
-                      selectionAdorned: false
+                      selectionAdorned: false,
+                      toolTip:  // define a tooltip for each node that displays the color as text
+                             goJs(go.Adornment, "Auto",
+                               goJs(go.Shape, { fill: "#FFFFCC" }),
+                                goJs(go.TextBlock, "Join", { margin: 4 },
+                               new go.Binding("text", "toolTipText").makeTwoWay())
+                             ),
                   },
                goJs(go.Shape, "SquareArrow", shapeStyle(),
                   {
                       row: 1, column: 1, name: "shape", fill: "#FFFFFF", stroke: "#00A9C9", minSize: new go.Size(160, 70), cursor: "move", strokeWidth: 4
                   },
                  new go.Binding('width').makeTwoWay(),
-                    new go.Binding('height').makeTwoWay(),
-                    new go.Binding("stroke","color").makeTwoWay()),
+                 new go.Binding('height').makeTwoWay(),
+                 new go.Binding("stroke", "color").makeTwoWay()),
+
               // the main object is a Panel that surrounds a TextBlock with a rectangular Shape
               goJs(go.Panel, "Table",
-                 { row: 1, column: 1 },
+                 {
+                     row: 1, column: 1,
+                 },
                 goJs(go.TextBlock, "Table",
 				 {
 				     row: 0, column: 0, font: "bold 11pt Helvetica, Arial, sans-serif", stroke: "#000000", maxSize: new go.Size(120, NaN), cursor: "move"
@@ -1762,7 +1887,7 @@ $(document).ready(function () {
             }
             else {
                 jobViewModel[self.UpdatableAttributeName].forEditing(newValue);
-                ns.okJob(jobViewModel, self.UpdatableAttributeName);
+                ns.okJob(jobViewModel, self.UpdatableAttributeName, true);
             }
         });
 
@@ -1790,6 +1915,7 @@ $(document).ready(function () {
 
     var showJobProperties = function () {
         canvas.clearSelection();
+        $('#job-addedit-modal-errorresult').empty();
         showJobModal();
     }
 
@@ -1999,7 +2125,7 @@ $(document).ready(function () {
     }
 
     var jobViewModel;
-
+    var revertJobName;
     var addNewJob = function () {
 
         Ciel.Process.Api.GetJobML(Ciel.Process.ProcessDesign.CreateJob.jobId, function (mldata) {
@@ -2037,6 +2163,11 @@ $(document).ready(function () {
                 new JobViewModel(model.MultiLangs[0].JOBID, model.MultiLangs[0].JOBNM, model.MultiLangs[0].DESCNT, model.MultiLangs[0].LANGCD, model.MultiLangs[0].LANGNM,
                 model.MultiLangs[0].JOBJSON, model.MultiLangs[0].CREATEDATE, model.MultiLangs[0].MODIFIEDDATE, model.MultiLangs[0].NewDefFlag, []));
 
+            revertJobName = jobViewModel.JOBNM();
+
+
+
+
             CielKoBind.BindSimple(jobViewModel, "job-addedit-modal");
             CielKoBind.BindSimple(jobViewModel, "job-settings-container");
 
@@ -2051,7 +2182,7 @@ $(document).ready(function () {
         data.reset();
     }
 
-    ns.okJob = function (data, propertyToValidate) {
+    ns.okJob = function (data, propertyToValidate, propertyEdit) {
         var newModelML = new JobViewModel(data.MultiLangs[0].JOBID.newValue(), data.MultiLangs[0].JOBNM.newValue(), data.MultiLangs[0].DESCNT.newValue(), data.MultiLangs[0].LANGCD.newValue(), data.MultiLangs[0].LANGNM.newValue(),
             data.MultiLangs[0].JOBJSON.newValue(), data.MultiLangs[0].CREATEDATE(), data.MultiLangs[0].MODIFIEDDATE(), data.MultiLangs[0].NewDefFlag, []);
         var newModel = new JobViewModel(data.JOBID.newValue(), data.JOBNM.newValue(), data.DESCNT.newValue(), data.LANGCD.newValue(), data.LANGNM.newValue(), data.JOBJSON.newValue(), data.CREATEDATE(), data.MODIFIEDDATE(), data.NewDefFlag, newModelML);
@@ -2067,7 +2198,10 @@ $(document).ready(function () {
             canvas.model.commitTransaction("set job attributes");
             data.isCanvasDirty(true);
 
-            if (quickSave) {
+            if ($('#save_job_config').text() == "Ok" || propertyEdit == true) {
+                propertyEdit = false;
+            }
+            else {
                 ns.saveJob(newModel);
             }
         }
@@ -2102,6 +2236,8 @@ $(document).ready(function () {
             $("#btnSave").removeClass('button').addClass('buttonDisabled').prop("disabled", true);
 
             Ciel.Process.Api.PostJob(vmSave, function (newModel) {
+                revertJobName = jobViewModel.JOBNM();
+
                 $('#job-addedit-modal-errorresult').empty(); //clear validation message
                 Ciel.Process.ProcessDesign.CreateJob.jobId = newModel.JOBID;
                 jobViewModel.JOBID(newModel.JOBID);
@@ -2123,6 +2259,23 @@ $(document).ready(function () {
         }
     }
 
+    ns.showScript = function (data) {
+        var vmSave = new JobViewModelSimple(data.JOBID(), data.JOBNM(), data.DESCNT(), data.LANGCD(), data.LANGNM(), canvas.model.toJson(), data.CREATEDATE(), data.MODIFIEDDATE(), data.NewDefFlag(),
+            new JobViewModelSimple(data.MultiLangs[0].JOBID(), data.MultiLangs[0].JOBNM(), data.MultiLangs[0].DESCNT(), data.MultiLangs[0].LANGCD(), data.MultiLangs[0].LANGNM(), data.MultiLangs[0].JOBJSON(),
+            data.MultiLangs[0].CREATEDATE(), data.MultiLangs[0].MODIFIEDDATE(), data.MultiLangs[0].NewDefFlag(), []));
+
+        vmSave.JOBID = Ciel.Process.ProcessDesign.CreateJob.jobId;
+        vmSave.NewDefFlag = (vmSave.JOBID === Ciel.Process.ProcessDesign.CreateJob.newJobId);
+
+        //if (validateJob(vmSave, true)) {
+        Ciel.Process.Api.GetJobYAML(vmSave, function (yaml) {
+            $('#show-script-modal').find('.modal-body .yaml-container').html(yaml);
+            $('.yaml-container').height(getWindowHeight() - 220);
+            $('#show-script-modal').modal('show');
+        });
+        //}
+    }
+
     var jobSaveWarningHandler = function (response) {
         canvasModifiedHandler(canvas);
         validateJob.inputErrorFunc(response);
@@ -2133,6 +2286,14 @@ $(document).ready(function () {
         if (isHideTooltip == undefined || isHideTooltip == null) isHideTooltip = false;
 
         function inputErrorFunc(err) {
+
+            jobViewModel.JOBNM(revertJobName);
+            objPropertiesViewModel.updateAttributes();
+            $('#save_job_config').text("Save");
+            if (!$('#job-addedit-modal').is(':visible')) {
+                $('#job-addedit-modal').modal('show');
+            }
+
             $('#job-addedit-modal-errorresult').empty();
             for (var i in err) {
                 var haselement = $('#input-' + err[i].PropertyName).length > 0;
@@ -2240,6 +2401,8 @@ $(document).ready(function () {
 
     function stepClicked(e, obj) {
         currentStep = obj.part;
+        currentStep.data.inputTablesByOrder = [];
+        currentStep.data.relationExpression = {};
 
         function addTemplateForDiagram(MyDiagram, input) {
             MyDiagram.groupTemplateMap.add("Table", Ciel.Process.ProcessDesign.CreateJob.groupTemplateForTable());  // end Group and call to add to template Map
@@ -2375,7 +2538,7 @@ $(document).ready(function () {
             if (executeDragOver) {
                 executeDragOver = false;
                 var nodeCount = 0;
-                var it = canvas.toolManager.draggingTool.draggingParts.iterator;
+                var it = e.diagram.toolManager.draggingTool.draggingParts.iterator;
                 while (it.next()) {
                     if (nodeCount > 0) {
                         var node = it.value;
@@ -2389,8 +2552,8 @@ $(document).ready(function () {
             e.subject.each(function (node) {
                 node.opacity = 1;
             });
-            canvas.commandHandler.expandSubGraph();
-            canvas.zoomToFit();
+            e.diagram.commandHandler.expandSubGraph();
+            e.diagram.zoomToFit();
         },
         allowDrop: true,  // must be true to accept drops from the Palette
         // what to do when a drag-drop occurs in the Diagram's background
@@ -2422,6 +2585,7 @@ $(document).ready(function () {
     ns.groupTemplateForTable = function () {
         return goJs(go.Group, "Auto",
             {
+                // dragComputation: avoidNodeOverlap,
                 background: "transparent",
                 ungroupable: true,
                 // highlight when dragging into the Group
@@ -2431,8 +2595,8 @@ $(document).ready(function () {
                 // when the selection is dropped into a Group, add the selected Parts into that Group;
                 // if it fails, cancel the tool, rolling back any changes
                 mouseDrop: Ciel.Process.ProcessDesign.CreateJob.finishDropForTable,
-                //  allowDrop: false,
-                handlesDragDropForMembers: true,  // don't need to define handlers on member Nodes and Links
+                 
+               // handlesDragDropForMembers: true,  // don't need to define handlers on member Nodes and Links
                 // Groups containing Nodes lay out their members vertically
                 layout:
                   goJs(go.GridLayout,
@@ -2525,7 +2689,7 @@ $(document).ready(function () {
                                   ))),
                          //// four named ports, one on each side:
 
-                          Ciel.Process.ProcessDesign.CreateJob.makePortForColumn("L", go.Spot.Left, false, true),
+                          Ciel.Process.ProcessDesign.CreateJob.makePortForColumn("L", go.Spot.Left, true, true),
                           Ciel.Process.ProcessDesign.CreateJob.makePortForColumn("R", go.Spot.Right, true, true)
                        );
     }
@@ -2596,7 +2760,7 @@ $(document).ready(function () {
             corner: 5, toShortLength: 4, fromShortLength: 100,
             relinkableFrom: false,
             relinkableTo: false,
-            reshapable: false,
+           // reshapable: true,
             resegmentable: true,
             selectionAdorned: true,
             // mouse-overs subtly highlight links:
@@ -2618,14 +2782,14 @@ $(document).ready(function () {
                   }
                   )
               ),  // end Horizontal Panel
-
-                Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("InnerJoin"),
-                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("FullJoin"),
-                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("LeftJoin"),
-                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("RightJoin"),
-                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("FullOuter"),
-                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("LeftOuter"),
-                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("RightOuter")
+                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("new")//,
+                    // Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("InnerJoin"),
+                    // Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("FullJoin"),
+                   //  Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("LeftJoin"),
+                   //  Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("RightJoin")//,
+                    // Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("FullOuter")//,
+                    // Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("LeftOuter"),
+                    // Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("RightOuter")
             )// end Vertical Panel
             )
         },
@@ -2633,11 +2797,11 @@ $(document).ready(function () {
         goJs(go.Shape,  // the highlight shape, normally transparent
           { isPanelMain: true, strokeWidth: 2, stroke: "transparent", name: "HIGHLIGHT" }),
         goJs(go.Shape,  // the link path shape
-          { isPanelMain: true, stroke: "gray", strokeWidth: 1 }, new go.Binding("stroke","color").makeTwoWay()),
+          { isPanelMain: true, stroke: "gray", strokeWidth: 1 }, new go.Binding("stroke", "color").makeTwoWay()),
         //goJs(go.Shape,  // the arrowhead
         //  { toArrow: "standard", stroke: "gray", strokeWidth: 3, fill: "gray" }),
         goJs(go.Panel, "Auto",  // the link label, normally not visible
-          { visible: true, name: "LABEL", segmentIndex: 2, segmentFraction: 0.5 },
+          { visible: true, name: "LABEL", segmentFraction: 0.5 },
           new go.Binding("visible", "visible").makeTwoWay(),
           goJs(go.Shape, "RoundedRectangle",  // the label shape
             { fill: "#f4f2f2", stroke: null }),
@@ -2669,6 +2833,56 @@ $(document).ready(function () {
 
     // get
     ns.createContextMenuButton = function (relationType) {
+        if (relationType === "new") {
+
+            return goJs("ContextMenuButton", { "_buttonFillOver": "white" },
+                        goJs(go.Panel, "Vertical", 
+                         goJs(go.Panel, "Horizontal", 
+                        goJs(go.Panel,"Auto",
+                        goJs(go.TextBlock, new go.Binding("text", "", function (obj) {
+                            return myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.from).data.group).data.WorkspaceTableName;
+                        }), { margin: 4 })), goJs(go.Panel, "Spot",
+                         goJs(go.Picture,
+                         {
+                             name: 'Picture',
+                             desiredSize: new go.Size(100, 40),
+                             source: CONFIG_APP_BASEURL + "/Areas/Process/Images/" + "InnerJoin" + ".png",
+                             margin: 3,
+
+
+                         }),
+                        goJs("CheckBox", "checked1", { "_buttonFillOver": "white", "_buttonStrokeOver": "black" }, { alignment: new go.Spot(0.25, .5) },
+                             { "_doClick": function (e, obj) { console.log(obj.part.data); Ciel.Process.ProcessDesign.CreateJob.updateRelation(e, obj); } }, new go.Binding("checked1").makeTwoWay()),
+                        goJs("CheckBox", "checked2", { "_buttonFillOver": "white", "_buttonStrokeOver": "black" }, { alignment: new go.Spot(0.50, .5) },
+                             { "_doClick": function (e, obj) { console.log(obj.part.data); Ciel.Process.ProcessDesign.CreateJob.updateRelation(e, obj); } }, new go.Binding("checked2").makeTwoWay()),
+                        goJs("CheckBox", "checked3", { "_buttonFillOver": "white", "_buttonStrokeOver": "black" }, { alignment: new go.Spot(0.75, .5) },
+                             { "_doClick": function (e, obj) { console.log(obj.part.data); Ciel.Process.ProcessDesign.CreateJob.updateRelation(e, obj); } }, new go.Binding("checked3").makeTwoWay())
+                        //new go.Binding("source", "relationType", Ciel.Process.ProcessDesign.CreateJob.getSourceForRelation).makeTwoWay()
+                        ),
+                        goJs(go.Panel, "Auto",
+                        goJs(go.TextBlock, new go.Binding("text", "", function (obj) {
+                            return myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.to).data.group).data.WorkspaceTableName;
+                        }), { margin: 4 }))),
+                         goJs(go.Panel, "Horizontal",
+                        goJs(go.Panel, "Auto",
+                        goJs(go.TextBlock, new go.Binding("text", "", function (obj) {
+                            return myDiagramModalInputTable.findNodeForKey(obj.from).data.columnname;
+                        }), { margin: 4 })), goJs(go.TextBlock, "=", { margin: 4 }),
+                        goJs(go.Panel, "Auto",
+                        goJs(go.TextBlock, new go.Binding("text", "", function (obj) {
+                            return myDiagramModalInputTable.findNodeForKey(obj.to).data.columnname;
+                        }), { margin: 4 })))),
+                      
+                      
+                     // goJs(go.TextBlock, "Select matching data from both tables."),
+                      {
+                          click: function (e, obj) {
+                              console.log(obj.part.data);
+                              //Ciel.Process.ProcessDesign.CreateJob.updateRelation(e, obj);
+                          }
+                      });
+
+        }
         return goJs("ContextMenuButton",
                       Ciel.Process.ProcessDesign.CreateJob.getImageForRelationType(relationType),
                      // goJs(go.TextBlock, "Select matching data from both tables."),
@@ -2746,7 +2960,7 @@ $(document).ready(function () {
         goJs(go.Shape,  // the highlight shape, normally transparent
           { isPanelMain: true, strokeWidth: 2, stroke: "transparent", name: "HIGHLIGHT" }),
         goJs(go.Shape,  // the link path shape
-          { isPanelMain: true, stroke: "gray", strokeWidth: 1 })
+          { isPanelMain: true, stroke: "gray", strokeWidth: 1 }, new go.Binding("stroke", "color").makeTwoWay())
         //goJs(go.Shape,  // the arrowhead
         //  { toArrow: "none", stroke: "gray", strokeWidth: 3, fill: "gray" })
       );
@@ -2790,13 +3004,14 @@ $(document).ready(function () {
                      alignment: spot, alignmentFocus: spot,
                      alignmentFocus: spot.opposite(),// align the port on the main Shape
                      portId: name,  // declare this object to be a "port"
-                     fromSpot: spot, toSpot: spot,  // declare where links may connect at this port
+                     fromSpot: go.Spot.LeftRightSides,  // links only go from the right side to the left side
+                     toSpot: go.Spot.LeftRightSides,
                      fromLinkable: output, toLinkable: input,  // declare whether the user may draw links to/from here
                      cursor: "pointer",// show a different cursor to indicate potential link point
-                    // fromMaxLinks: 1,
-                    // toMaxLinks: 1,
+                     fromMaxLinks: 1,
+                     toMaxLinks: 1,
 
-                 });
+                 })
     }
 
     ns.updatedColumnInTable = function (e, obj) {
@@ -2858,13 +3073,13 @@ $(document).ready(function () {
                     var add = true;
                     myDiagramModalOutputTable.nodes.each(function (node) {
                         if (node.data.columnid == n.data.columnid && outputModel.findNodeDataForKey(node.data.group).WorkspaceTableName == "Selected Column") { // depens on columnid if everycolumn in diagram has unique id  then modify here
-                            add = false; removeColumn = node.data;
+                            add = false;
+                            removeColumn = node.data;
                         }
                     });
                     if (add) {
                         outputModel.addNodeData(newNodeColumn);
-                    }
-                    else {
+                    } else {
                         outputModel.removeNodeData(removeColumn);
                         outputModel.addNodeData(newNodeColumn);
                     }
@@ -2953,12 +3168,62 @@ $(document).ready(function () {
         }
         grp.isHighlighted = false;
     }
+    ns.getStringFromBool = function (bool) {
+        if (typeof bool !== "undefined" && bool===true) {
+            return "1";
+        } else {
+            return "0";
+        }
+    }
+    ns.getRelationType = function (linkData) {
 
+        var checkString = Ciel.Process.ProcessDesign.CreateJob.getStringFromBool(linkData.checked1)
+            + Ciel.Process.ProcessDesign.CreateJob.getStringFromBool(linkData.checked2)
+            + Ciel.Process.ProcessDesign.CreateJob.getStringFromBool(linkData.checked3);
+
+        var relationType;
+        if (checkString === "000") {
+            return "InnerJoin";
+        }
+        switch (checkString) {
+            case "001":
+                relationType = "RightOuter";
+                break;
+            case "101":
+                relationType = "FullOuter";
+                break;
+            case "100":
+                relationType = "LeftOuter";
+                break;
+            case "011":
+                relationType = "RightJoin";
+                break;
+            case "110":
+                relationType = "LeftJoin";
+                break;
+            case "111":
+                relationType = "FullJoin";
+                break;
+            case "010":
+                relationType = "InnerJoin";
+                break;
+                // add the default keyword here
+        }
+        return relationType;
+
+    }
     // replace the default Link template in the linkTemplateMap
-    ns.updateRelation = function (e, obj, newSource) {
+    ns.updateRelation = function (e, obj) {
         var contextmenu = obj.part;
         var selectedLinkData = contextmenu.data;
+        var newSource = Ciel.Process.ProcessDesign.CreateJob.getRelationType(selectedLinkData);
         var model = e.diagram.model;
+        if (newSource === "InnerJoin") {
+            e.diagram.startTransaction("update check");
+            model.setDataProperty(selectedLinkData, "checked2", true);
+            e.diagram.commitTransaction("update check");
+        }
+        
         var fromNodeGroup = e.diagram.findNodeForKey(selectedLinkData.from).data.group;
         var toNodeGroup = e.diagram.findNodeForKey(selectedLinkData.to).data.group;
 
@@ -2974,6 +3239,9 @@ $(document).ready(function () {
 
                 e.diagram.startTransaction("changed relation");
                 model.setDataProperty(link.data, "relationType", newSource);
+                model.setDataProperty(link.data, "checked1", selectedLinkData.checked1);
+                model.setDataProperty(link.data, "checked2", selectedLinkData.checked2);
+                model.setDataProperty(link.data, "checked3", selectedLinkData.checked3);
                 model.setDataProperty(link.data, "toolTipText",
                   (newSource + ": " + fromNodeTable.WorkspaceTableName + "." + fromNode.columnname + " = " + toNodeTable.WorkspaceTableName + "." + toNode.columnname));
                 e.diagram.commitTransaction("changed relation");
@@ -3037,7 +3305,6 @@ $(document).ready(function () {
     }
 
     ns.getTablesInGroupFormat = function (TableInJson) {
-        
         var tables = [];
         var numberOfTables = TableInJson.length;
         if ((typeof numberOfTables) !== "undefined") {
@@ -3069,5 +3336,52 @@ $(document).ready(function () {
 
         return tables;
     }
+
+    // R is a Rect in document coordinates
+    // NODE is the Node being moved -- ignore when looking for Parts intersecting the Rect
+    function isUnoccupied(r, node) {
+        var diagram = node.diagram;
+        // debugger;
+        // nested function used by Layer.findObjectsIn, below
+        // only consider Parts, and ignore the given Node and any Links
+        function navig(obj) {
+            var part;
+            if (obj.part.data.category.toLowerCase() === "column") part = obj.part;
+            else part = obj.part.containingGroup;
+            if (part === node) return null;
+            if (part instanceof go.Link) return null;
+            return part;
+        }
+
+        // only consider non-temporary Layers
+        var lit = diagram.layers;
+        while (lit.next()) {
+            var lay = lit.value;
+            if (lay.isTemporary) continue;
+            if (lay.findObjectsIn(r, navig, null, true).count > 0) return false;
+        }
+        return true;
+    }
+
+    function avoidNodeOverlap(node, pt, gridpt) {
+        // this assumes each node is fully rectangular
+        var bnds = node.actualBounds;
+        var loc = node.location;
+        // see if the area at the proposed location is unoccupied
+        // use PT instead of GRIDPT if you want to ignore any grid snapping behavior
+        var x = gridpt.x - (loc.x - bnds.x);
+        var y = gridpt.y - (loc.y - bnds.y);
+        var r = new go.Rect(x, y, bnds.width, bnds.height);
+        console.log(bnds);
+        console.log(gridpt);
+        console.log(node);
+        // maybe inflate R if you want some space between the node and any other nodes
+        if (isUnoccupied(r, node)) {
+            return pt;
+        }// OK
+        return loc;  // give up -- don't allow the node to be moved to the new location
+    }
+
+
 
 }(Ciel.Process.ProcessDesign.CreateJob));
