@@ -163,7 +163,7 @@ $(document).ready(function () {
                 diagram.findNodeForKey(storedLink.data.to).data.group === toNodeGroup) ||
                 (diagram.findNodeForKey(storedLink.data.from).data.group === toNodeGroup &&
                 diagram.findNodeForKey(storedLink.data.to).data.group === fromNodeGroup))) {
-                var relationType = storedLink.data.relationType;
+                var relationType = storedLink.data.toolTipText;
                 var res, re, r;
                 if (typeof relationType !== "undefined") {
                     var partIndex = relationType.indexOf(":");
@@ -192,14 +192,16 @@ $(document).ready(function () {
             }
 
         });
+        debugger;
         // 
-        console.log(link.fromNode.containingGroup.data.WorkspaceTableName);
-        if (currentStep.data.inputTablesByOrder.indexOf(link.fromNode.containingGroup) === -1) {
+        console.log(currentStep.data.inputTablesByOrder.indexOf(link.fromNode.containingGroup));
+        if (Ciel.Process.ProcessDesign.CreateJob.isHasNode(currentStep.data.inputTablesByOrder, link.fromNode.containingGroup) == -1) {
             currentStep.data.inputTablesByOrder.push(link.fromNode.containingGroup);
         }
-        if (currentStep.data.inputTablesByOrder.indexOf(link.toNode.containingGroup) === -1) {
+        if (Ciel.Process.ProcessDesign.CreateJob.isHasNode(currentStep.data.inputTablesByOrder, link.toNode.containingGroup) == -1) {
             currentStep.data.inputTablesByOrder.push(link.toNode.containingGroup);
         }
+        
         if (typeof currentStep.data.relationExpression[link.fromNode.containingGroup.data.WorkspaceTableName + link.toNode.containingGroup.data.WorkspaceTableName] === "undefined") {
             currentStep.data.relationExpression[link.fromNode.containingGroup.data.WorkspaceTableName + link.toNode.containingGroup.data.WorkspaceTableName] = [];
         }
@@ -216,13 +218,16 @@ $(document).ready(function () {
                 }
             
                 if (link.fromNode.containingGroup.findExternalLinksConnected().count === 1) {
-                    currentStep.data.inputTablesByOrder.splice(currentStep.data.inputTablesByOrder.indexOf(link.fromNode.containingGroup), 1);
+                    currentStep.data.inputTablesByOrder.splice(Ciel.Process.ProcessDesign.CreateJob.isHasNode(currentStep.data.inputTablesByOrder, link.fromNode.containingGroup), 1);
                 }
                 if (link.toNode.containingGroup.findExternalLinksConnected().count === 1)  {
-                    currentStep.data.inputTablesByOrder.splice(currentStep.data.inputTablesByOrder.indexOf(link.toNode.containingGroup), 1);
+                    currentStep.data.inputTablesByOrder.splice(Ciel.Process.ProcessDesign.CreateJob.isHasNode(currentStep.data.inputTablesByOrder, link.toNode.containingGroup), 1);
                 }
-
-                currentStep.data.relationExpression[link.fromNode.containingGroup.data.WorkspaceTableName + link.toNode.containingGroup.data.WorkspaceTableName].splice(currentStep.data.relationExpression[link.fromNode.containingGroup.data.WorkspaceTableName + link.toNode.containingGroup.data.WorkspaceTableName].indexOf(link), 1);
+                var keyMapping = link.fromNode.containingGroup.data.WorkspaceTableName + link.toNode.containingGroup.data.WorkspaceTableName;
+                if(typeof currentStep.data.relationExpression[keyMapping]!=="undefined"){
+                    currentStep.data.relationExpression[keyMapping].splice(currentStep.data.relationExpression[keyMapping].indexOf(link), 1);
+                }
+                
             
         });
     });
@@ -399,8 +404,9 @@ $(document).ready(function () {
                 modalOutputTable = node.data;
             }
         });
+
         myDiagramModalInputTable.nodes.each(function (node) {
-            if (node.data.category == "Table" && (currentStep.data.inputTablesByOrder.indexOf(node) === -1)) {
+            if (node.data.category == "Table" && (Ciel.Process.ProcessDesign.CreateJob.isHasNode(currentStep.data.inputTablesByOrder, node) == -1)) {
                 currentStep.data.inputTablesByOrder.push(node);
             }
         });
@@ -409,27 +415,38 @@ $(document).ready(function () {
             var j = i;
 
             var expressions = "";
-            var relationType = currentStep.data.relationExpression[currentStep.data.inputTablesByOrder[i - 1].data.WorkspaceTableName + currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName][0].data.toolTipText;
-            var partIndex = relationType.indexOf(":");
-            currentStep.data.fromQuery += " "+relationType.substr(0, partIndex)+" "+currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName+" On ";
+            var hasLink = false;
+            var relationType;
+            
 
             while (--j > -1) {
-                var links = currentStep.data.relationExpression[currentStep.data.inputTablesByOrder[j].data.WorkspaceTableName+currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName];
+                var links = currentStep.data.relationExpression[currentStep.data.inputTablesByOrder[j].data.WorkspaceTableName + currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName];
+                if (typeof links==="undefined" ||(typeof links !== "undefined" && links.length === 0)) {
+                    links = currentStep.data.relationExpression[currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName + currentStep.data.inputTablesByOrder[j].data.WorkspaceTableName];
+                }
                 if (typeof links !== "undefined" && links.length !== 0) {
                     for (k = 0; k < links.length; k++) {
                         
-                        var relationType = links[k].data.toolTipText;
+                        relationType = links[k].data.toolTipText;
                         var partIndex = relationType.indexOf(":");
                         var expression = relationType.substr((partIndex + 2), relationType.length);
                         if (k == 0) {
                             expressions += expression;
                         } else {
                             expressions += " AND "+expression;
-                        }
-                        
+                        }  
                     }
+                    hasLink = true;
                 }
             }
+            if (hasLink) {
+                //var relationType = currentStep.data.relationExpression[currentStep.data.inputTablesByOrder[i - 1].data.WorkspaceTableName + currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName][0].data.toolTipText;
+                var partIndex = relationType.indexOf(":");
+                currentStep.data.fromQuery += "\n " + relationType.substr(0, partIndex) + " " + currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName + " On ";
+            } else {
+                currentStep.data.fromQuery += "\n Cross Join " + currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName + " ";
+            }
+            
             currentStep.data.fromQuery += expressions;
         }
 
@@ -2401,8 +2418,11 @@ $(document).ready(function () {
 
     function stepClicked(e, obj) {
         currentStep = obj.part;
-        currentStep.data.inputTablesByOrder = [];
-        currentStep.data.relationExpression = {};
+        if (typeof currentStep.data.inputTablesByOrder === "undefined") {
+            currentStep.data.inputTablesByOrder = [];
+            currentStep.data.relationExpression = {};
+        }
+        
 
         function addTemplateForDiagram(MyDiagram, input) {
             MyDiagram.groupTemplateMap.add("Table", Ciel.Process.ProcessDesign.CreateJob.groupTemplateForTable());  // end Group and call to add to template Map
@@ -3382,6 +3402,14 @@ $(document).ready(function () {
         return loc;  // give up -- don't allow the node to be moved to the new location
     }
 
-
+    ns.isHasNode = function (array, node) {
+        
+        for (i = 0; i < array.length; i++) {
+            if (array[i].data.key == node.data.key) {
+                return i;
+            }
+        }
+        return -1;
+    }
 
 }(Ciel.Process.ProcessDesign.CreateJob));
