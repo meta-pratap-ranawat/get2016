@@ -175,6 +175,9 @@ $(document).ready(function () {
 
                 diagram.startTransaction("set link");
                 diagram.model.setDataProperty(linkData, "relationType", res);
+                diagram.model.setDataProperty(linkData, "checked1", storedLink.data.checked1);
+                diagram.model.setDataProperty(linkData, "checked2", storedLink.data.checked2);
+                diagram.model.setDataProperty(linkData, "checked3", storedLink.data.checked3);
 
                 if ((diagram.findNodeForKey(storedLink.data.from).data.group === toNodeGroup &&
                 diagram.findNodeForKey(storedLink.data.to).data.group === fromNodeGroup)) {
@@ -192,7 +195,7 @@ $(document).ready(function () {
             }
 
         });
-        debugger;
+        
         // 
         console.log(currentStep.data.inputTablesByOrder.indexOf(link.fromNode.containingGroup));
         if (Ciel.Process.ProcessDesign.CreateJob.isHasNode(currentStep.data.inputTablesByOrder, link.fromNode.containingGroup) == -1) {
@@ -209,7 +212,7 @@ $(document).ready(function () {
         
     });
     myDiagramModalInputTable.addDiagramListener("SelectionDeleting", function (e) {
-        debugger;
+        
         var link = e.subject;
         e.subject.each(function (link) {
             
@@ -231,6 +234,8 @@ $(document).ready(function () {
             
         });
     });
+
+    
 
     $("#dock .undock").click(function () {
         $(this).find("ul.free").animate({ left: "-240px" }, 200);
@@ -381,7 +386,7 @@ $(document).ready(function () {
     });
 
     $("#save_mappings").on('click', function () {
-        debugger;
+        
         currentStep.data.modalOutputTablesMapping = JSON.parse(myDiagramModalOutputTable.model.toJSON());
         currentStep.data.modalInputTablesMapping = JSON.parse(myDiagramModalInputTable.model.toJSON());
         var modalOutputTable = {};
@@ -998,7 +1003,7 @@ $(document).ready(function () {
                     if (executeDragOver) {
                         executeDragOver = false;
                         var nodeCount = 0;
-                        var it = myDiagram.toolManager.draggingTool.draggingParts.iterator;
+                        var it = e.diagram.toolManager.draggingTool.draggingParts.iterator;
                         while (it.next()) {
                             if (nodeCount > 0) {
                                 var node = it.value;
@@ -1147,6 +1152,86 @@ $(document).ready(function () {
           { gridCellSize: new go.Size(20, 20) },
           goJs(go.Shape, "LineH", { stroke: "#efefef" }),
           goJs(go.Shape, "LineV", { stroke: "#efefef" }));
+
+        //context menu change start
+        // This is a dummy context menu for the whole Diagram:
+        //myDiagramModalInputTable.contextMenu = goJs(go.Adornment);
+        // Override the ContextMenuTool.showContextMenu and hideContextMenu methods
+        // in order to modify the HTML appropriately.
+        var cxTool = myDiagramModalInputTable.toolManager.contextMenuTool;
+        // This is the actual HTML context menu:
+        var cxElement = document.getElementById("contextMenu");
+        // We don't want the div acting as a context menu to have a (browser) context menu!
+        cxElement.addEventListener("contextmenu", function (e) {
+            this.focus();
+            e.preventDefault();
+            return false;
+        }, false);
+        cxElement.addEventListener("blur", function (e) {
+            cxTool.stopTool();
+            // maybe start another context menu
+            if (cxTool.canStart()) {
+                e.diagram.currentTool = cxTool;
+                cxTool.doMouseUp();
+            }
+        }, false);
+        cxElement.tabIndex = "1";
+        // This is the override of ContextMenuTool.showContextMenu:
+        // This does not not need to call the base method.
+        var contextMenuE = {};
+        cxTool.showContextMenu = function (contextmenu, obj) {
+            var diagram = this.diagram;
+            contextMenuE.diagram = this.diagram;
+            contextMenuE.obj = obj;
+            if (diagram === null) return;
+            // Hide any other existing context menu
+            if (contextmenu !== this.currentContextMenu) {
+                this.hideContextMenu();
+            }
+            // Show only the relevant buttons given the current state.
+            var cmd = diagram.commandHandler;
+            var objExists = obj !== null;
+            if (objExists && obj instanceof go.Link) {
+                console.log(obj);
+                console.log(obj.data);
+                $("#leftTable").text(obj.fromNode.containingGroup.data.WorkspaceTableName);
+                $("#rightTable").text(obj.toNode.containingGroup.data.WorkspaceTableName);
+                $("#checkbox1").prop('checked', ((typeof obj.data.checked1) === "undefined") ? false : obj.data.checked1);
+                $("#checkbox2").prop('checked', ((typeof obj.data.checked2) === "undefined") ? true : obj.data.checked2);
+                $("#checkbox3").prop('checked', ((typeof obj.data.checked3) === "undefined") ? false : obj.data.checked3);
+                $("#leftTableColumn").text(obj.fromNode.data.columnname);
+                $("#rightTableColumn").text(obj.toNode.data.columnname);
+            }
+            cxElement.style.display = "block";
+            // we don't bother overriding positionContextMenu, we just do it here:
+            var mousePt = diagram.lastInput.viewPoint;
+            cxElement.style.left = mousePt.x + "px";
+            cxElement.style.top = mousePt.y + "px";
+            // Remember that there is now a context menu showing
+            this.currentContextMenu = contextmenu;
+        }
+
+        $("#checkbox1").click(function () {
+            contextMenuE.obj.data.checked1 = this.checked; 
+            Ciel.Process.ProcessDesign.CreateJob.updateRelation(contextMenuE, contextMenuE.obj);
+        });
+        $("#checkbox2").click(function () {
+            contextMenuE.obj.data.checked2 = this.checked;
+            Ciel.Process.ProcessDesign.CreateJob.updateRelation(contextMenuE, contextMenuE.obj);
+        });
+        $("#checkbox3").click(function () {
+            contextMenuE.obj.data.checked3 = this.checked;
+            Ciel.Process.ProcessDesign.CreateJob.updateRelation(contextMenuE, contextMenuE.obj);
+        });
+        // This is the corresponding override of ContextMenuTool.hideContextMenu:
+        // This does not not need to call the base method.
+        cxTool.hideContextMenu = function () {
+            if (this.currentContextMenu === null) return;
+            cxElement.style.display = "none";
+            this.currentContextMenu = null;
+        }
+
+        //context menu change ends
 
         canvas.addDiagramListener("Modified", function (e) {
             canvasModifiedHandler(e);
@@ -2775,9 +2860,9 @@ $(document).ready(function () {
 
         return goJs(go.Link,  // the whole link panel
         {
-            routing: go.Link.AvoidsNodes,
+            //routing: go.Link.AvoidsNodes,
             curve: go.Link.JumpOver,
-            corner: 5, toShortLength: 4, fromShortLength: 100,
+            corner: 5, toShortLength: 4, fromShortLength: 10,
             relinkableFrom: false,
             relinkableTo: false,
            // reshapable: true,
@@ -2786,32 +2871,7 @@ $(document).ready(function () {
             // mouse-overs subtly highlight links:
             mouseEnter: function (e, link) { link.findObject("HIGHLIGHT").stroke = "rgba(30,144,255,0.2)"; },
             mouseLeave: function (e, link) { link.findObject("HIGHLIGHT").stroke = "transparent"; },
-
-            contextMenu: goJs(go.Adornment, "Vertical",
-                 goJs(go.Panel, "Vertical", // title above Placeholder
-              goJs(go.Panel, "Horizontal",  // button next to TextBlock
-                { stretch: go.GraphObject.Horizontal, background: "#ccc" },
-                goJs(go.TextBlock, "Select Join",
-                  {
-                      alignment: go.Spot.Left,
-                      editable: true,
-                      margin: 5,
-                      font: "bold 12px sans-serif",
-                      opacity: 0.75,
-                      stroke: "#404040"
-                  }
-                  )
-              ),  // end Horizontal Panel
-                     Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("new")//,
-                    // Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("InnerJoin"),
-                    // Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("FullJoin"),
-                   //  Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("LeftJoin"),
-                   //  Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("RightJoin")//,
-                    // Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("FullOuter")//,
-                    // Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("LeftOuter"),
-                    // Ciel.Process.ProcessDesign.CreateJob.createContextMenuButton("RightOuter")
-            )// end Vertical Panel
-            )
+            contextMenu: goJs(go.Adornment) 
         },
         new go.Binding("points").makeTwoWay(),
         goJs(go.Shape,  // the highlight shape, normally transparent
@@ -2851,7 +2911,7 @@ $(document).ready(function () {
     }
 
 
-    // get
+    /* get
     ns.createContextMenuButton = function (relationType) {
         if (relationType === "new") {
 
@@ -2903,14 +2963,6 @@ $(document).ready(function () {
                       });
 
         }
-        return goJs("ContextMenuButton",
-                      Ciel.Process.ProcessDesign.CreateJob.getImageForRelationType(relationType),
-                     // goJs(go.TextBlock, "Select matching data from both tables."),
-                      {
-                          click: function (e, obj) {
-                              Ciel.Process.ProcessDesign.CreateJob.updateRelation(e, obj, relationType);
-                          }
-                      });
     }
     //for picture in context menu
     ns.getImageForRelationType = function (relationType) {
@@ -2960,7 +3012,7 @@ $(document).ready(function () {
                         //new go.Binding("source", "relationType", Ciel.Process.ProcessDesign.CreateJob.getSourceForRelation).makeTwoWay()
                         )
     }
-
+    */
     // for output model only
     ns.linkTemplateForMapping = function () {
         return goJs(go.Link,  // the whole link panel
@@ -3243,6 +3295,8 @@ $(document).ready(function () {
             model.setDataProperty(selectedLinkData, "checked2", true);
             e.diagram.commitTransaction("update check");
         }
+
+        $("#contextMenuImg").attr("src", ("Areas/Process/Images/" + newSource + ".png"));
         
         var fromNodeGroup = e.diagram.findNodeForKey(selectedLinkData.from).data.group;
         var toNodeGroup = e.diagram.findNodeForKey(selectedLinkData.to).data.group;
