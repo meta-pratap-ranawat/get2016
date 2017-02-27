@@ -7,17 +7,26 @@ Ciel.Process.ProcessDesign.CreateJob.jobId = Ciel.Process.ProcessDesign.CreateJo
 var myDiagramModalInputTable;
 var myDiagramModalOutputTable;
 var canvas;
-var isCanvasReadOnly = false;
-var recordTableName = '';
-var recordPageNumber = 0;
 $(document).ready(function () {
-    $('[data-toggle="tooltip"]').tooltip();
-    $("#file-output-tab").click(function () {
-        $('#help-icon-purge-file-modal').tooltip('hide');
+    var docked = 0;
+
+    $("#dock > li > ul").height($(window).height());
+
+    $("#dock .heading").click(function () {
+        if (docked > 0) {
+            return;
+        }
+
+        $("#dock > li").find("ul").animate({ left: "22px" }, 200);
+        Ciel.Process.ProcessDesign.CreateJob.setPaletteHeight();
+
+        docked += 1;
+
+        $("#content").css("margin-left", "240px");
+
+        Ciel.Process.ProcessDesign.CreateJob.updateDiagram();
     });
-    $("#joinStepAccordion").on('show.bs.collapse', function () {
-        $('#help-icon-purge-file-modal1').tooltip('hide');
-    });
+
     myDiagramModalInputTable = Ciel.Process.ProcessDesign.CreateJob.CreateCanvas("myDiagramForModalInputTableDiv");
     myDiagramModalOutputTable = Ciel.Process.ProcessDesign.CreateJob.CreateCanvas("myDiagramForModalOutputTableDiv");
 
@@ -40,6 +49,7 @@ $(document).ready(function () {
         return true;
 
     }
+   // myDiagramModalInputTable.toolManager.contextMenuTool.mouseUpTools
 
     tool.isValidLink = function (fromnode, fromport, tonode, toport) {
         var shortCheck = false;
@@ -72,10 +82,11 @@ $(document).ready(function () {
                     if (typeof visitedLink[edge] === "undefined") {
                         visitedLink[edge] = true;
                         var node = (vertex === edge.fromNode.containingGroup) ? edge.toNode.containingGroup : edge.fromNode.containingGroup;
-
+                        
                         if (typeof visitedNode[node] === "undefined") {
                             queue.push(node);
                             visitedNode[node] = true;
+                                
                         }
 
                         paths[edge] = vertex;
@@ -93,12 +104,10 @@ $(document).ready(function () {
 
     var toolForOutput = myDiagramModalOutputTable.toolManager.linkingTool;
     toolForOutput.isValidFrom = function (fromnode, fromport) {
-
         if (fromnode.containingGroup.data.WorkspaceTableName !== "Selected Column") {
             return false;
         }
         return true;
-
     }
 
     myDiagramModalOutputTable.addDiagramListener("LinkDrawn", function (e) {
@@ -135,7 +144,7 @@ $(document).ready(function () {
         var fromNodeGroup = fromNode.data.group;
         var toNodeGroup = toNode.data.group;
         var updateLink = true;
-
+        
 
         if (link.fromNode.data.columntype !== link.toNode.data.columntype) {
             //changing the link color;
@@ -186,118 +195,110 @@ $(document).ready(function () {
                 } else {
                     diagram.model.setDataProperty(linkData, "angle", 0);
                 }
-
+                
                 diagram.commitTransaction("set link");
                 updateLink = false;
             }
 
         });
-
-
+        
+        
         if (Ciel.Process.ProcessDesign.CreateJob.isHasNode(currentStep.data.inputTablesByOrder, link.fromNode.containingGroup) == -1) {
             currentStep.data.inputTablesByOrder.push(link.fromNode.containingGroup);
         }
         if (Ciel.Process.ProcessDesign.CreateJob.isHasNode(currentStep.data.inputTablesByOrder, link.toNode.containingGroup) == -1) {
             currentStep.data.inputTablesByOrder.push(link.toNode.containingGroup);
         }
-
+        
         if (typeof currentStep.data.relationExpression[link.fromNode.containingGroup.data.WorkspaceTableName + link.toNode.containingGroup.data.WorkspaceTableName] === "undefined") {
             currentStep.data.relationExpression[link.fromNode.containingGroup.data.WorkspaceTableName + link.toNode.containingGroup.data.WorkspaceTableName] = [];
         }
-        currentStep.data.relationExpression[link.fromNode.containingGroup.data.WorkspaceTableName + link.toNode.containingGroup.data.WorkspaceTableName].push(link);
-
+        currentStep.data.relationExpression[link.fromNode.containingGroup.data.WorkspaceTableName+link.toNode.containingGroup.data.WorkspaceTableName].push(link);
+        
     });
     myDiagramModalInputTable.addDiagramListener("SelectionDeleting", function (e) {
-
+        
         var link = e.subject;
         e.subject.each(function (link) {
-
-            if (!(link instanceof go.Link)) {
-                return;
+            
+                if (!(link instanceof go.Link)) {
+                    return;
+                }
+            
+                if (link.fromNode.containingGroup.findExternalLinksConnected().count === 1) {
+                    currentStep.data.inputTablesByOrder.splice(Ciel.Process.ProcessDesign.CreateJob.isHasNode(currentStep.data.inputTablesByOrder, link.fromNode.containingGroup), 1);
+                }
+                if (link.toNode.containingGroup.findExternalLinksConnected().count === 1)  {
+                    currentStep.data.inputTablesByOrder.splice(Ciel.Process.ProcessDesign.CreateJob.isHasNode(currentStep.data.inputTablesByOrder, link.toNode.containingGroup), 1);
+                }
+                var keyMapping = link.fromNode.containingGroup.data.WorkspaceTableName + link.toNode.containingGroup.data.WorkspaceTableName;
+                if(typeof currentStep.data.relationExpression[keyMapping]!=="undefined"){
+                    currentStep.data.relationExpression[keyMapping].splice(currentStep.data.relationExpression[keyMapping].indexOf(link), 1);
+                }
+                
+            
+        });
+    });
+    myDiagramModalInputTable.addDiagramListener("SelectionMoved", function (e) {
+        
+        e.subject.each(function (node) {
+            if ( node instanceof go.Group && node.findExternalLinksConnected().count!=0 ) {
+                node.findExternalLinksConnected().each(function (link) {
+                    e.diagram.startTransaction("setAngle");
+                    if (link.fromNode.containingGroup.location.x > link.toNode.containingGroup.location.x) {
+                        e.diagram.model.setDataProperty(link.data, "angle", 180);
+                    } else {
+                        e.diagram.model.setDataProperty(link.data, "angle", 0);
+                    }
+                    e.diagram.commitTransaction("setAngle");
+                });
             }
-
-            if (link.fromNode.containingGroup.findExternalLinksConnected().count === 1) {
-                currentStep.data.inputTablesByOrder.splice(Ciel.Process.ProcessDesign.CreateJob.isHasNode(currentStep.data.inputTablesByOrder, link.fromNode.containingGroup), 1);
-            }
-            if (link.toNode.containingGroup.findExternalLinksConnected().count === 1) {
-                currentStep.data.inputTablesByOrder.splice(Ciel.Process.ProcessDesign.CreateJob.isHasNode(currentStep.data.inputTablesByOrder, link.toNode.containingGroup), 1);
-            }
-            var keyMapping = link.fromNode.containingGroup.data.WorkspaceTableName + link.toNode.containingGroup.data.WorkspaceTableName;
-            if (typeof currentStep.data.relationExpression[keyMapping] !== "undefined") {
-                currentStep.data.relationExpression[keyMapping].splice(currentStep.data.relationExpression[keyMapping].indexOf(link), 1);
-            }
-
-
         });
     });
 
-     myDiagramModalInputTable.addDiagramListener("SelectionMoved", function (e) {
-       
-       e.subject.each(function (node) {
-           if ( node instanceof go.Group && node.findExternalLinksConnected().count!=0 ) {
-               node.findExternalLinksConnected().each(function (link) {
-                   e.diagram.startTransaction("setAngle");
-                   if (link.fromNode.containingGroup.location.x > link.toNode.containingGroup.location.x) {
-                       e.diagram.model.setDataProperty(link.data, "angle", 180);
-                   } else {
-                       e.diagram.model.setDataProperty(link.data, "angle", 0);
-                   }
-                   e.diagram.commitTransaction("setAngle");
-               });
-           }
-       });
-   });
+    
 
+    $("#dock .undock").click(function () {
+        $(this).find("ul.free").animate({ left: "-240px" }, 200);
 
+        $(this).parent().parent().animate({ left: "-240px" }, 200);
+        docked = docked - 1;
 
-    $("#collapseThree").on('show.bs.collapse', function () {
-        myDiagramModalOutputTable.requestUpdate();
-    });
-    $("#canvasLeftPanel #jobComponentsButton").click(function () {
-        $(".pageColumns").removeClass("hideLeft").addClass("showLeft");
+        $("#content").css("margin-left", "40px");
         Ciel.Process.ProcessDesign.CreateJob.updateDiagram();
     });
-    $("#canvasLeftPanel .innerContent .heading .closeMe").click(function () {
-        $(".pageColumns").removeClass("showLeft").addClass("hideLeft")
+
+    /*rightPanel collapse/expand*/
+    $("#rightPanelButton").click(function () {
+        $("body").addClass('showRight');
         Ciel.Process.ProcessDesign.CreateJob.updateDiagram();
     });
-    $("#canvasRightPanel #propertiesButton").click(function () {
-        $(".pageColumns").removeClass("hideRight").addClass("showRight"),
+    $("#rightPanelData > h3 > .fa-toggle-right").click(function () {
+        $("body").toggleClass('showRight');
         Ciel.Process.ProcessDesign.CreateJob.updateDiagram();
     });
-    $("#canvasRightPanel .innerContent .heading .closeMe").click(function () {
-        $(".pageColumns").removeClass("showRight").addClass("hideRight"),
-        Ciel.Process.ProcessDesign.CreateJob.updateDiagram();
+    $("#rightPanelData .readOnlyMode *").click(function () {
+        $("#rightPanelData .readOnlyMode").hide();
+        $("#rightPanelData .editMode").show();
+        $("body").addClass('editingRight');
     });
-    $("#canvasRightPanel .innerContent").click(function () {
-        $("#canvasRightPanel .readOnlyMode").hide(),
-        $("#canvasRightPanel .editMode").show(),
-        $(".pageColumns").addClass("editingRight"),
-        Ciel.Process.ProcessDesign.CreateJob.updateDiagram();
-    });
-    $("#canvasBottomPanel .panel-heading .minimize").click(function () { $(".pageColumns").addClass("minimizeBottom") })
-    $("#canvasBottomPanel .panel-heading .maximize").click(function () { $(".pageColumns").removeClass("minimizeBottom").addClass("showBottom") })
-    $("#canvasBottomPanel .panel-heading .closeMe").click(function () { $(".pageColumns").removeClass("showBottom").addClass("hideBottom") })
     $("#content").click(function () {
-        $("#canvasRightPanel .editMode").hide(),
-        $("#canvasRightPanel .readOnlyMode").show(),
-        $(".pageColumns").removeClass("editingRight"),
-        Ciel.Process.ProcessDesign.CreateJob.updateDiagram();
+        $("#rightPanelData .editMode").hide();
+        $("#rightPanelData .readOnlyMode").show();
+        $("body").removeClass('editingRight');
     });
-    $("#canvasLeftPanel .leftContentTabs .nav-tabs").scrollingTabs()
+
     $('#file-modal').on('shown.bs.modal', function () {
-        $('#file-input-tab').tab('show');
-        $('#process-filemodal-input').removeClass('active').addClass('active');
-        $('#process-filemodal-output').removeClass('active');
+        $('#file-general-tab').tab('show');
+        $('#process-filemodal-general').removeClass('active').addClass('active');
         $('#process-filemodal-mapping').removeClass('active');
     });
 
     $('#file-modal').on('hide.bs.modal', function () {
-        $('#file-input-tab').tab('show');
-        $('#process-filemodal-input').removeClass('active').addClass('active');
-        $('#process-filemodal-output').removeClass('active');
+        $('#file-general-tab').tab('show');
+        $('#process-filemodal-general').removeClass('active').addClass('active');
         $('#process-filemodal-mapping').removeClass('active');
-        $("#file-modal .modal-body .panel-default .panel-body").scrollTop(0);
+        $(".panel-scroll").scrollTop(0);
     });
 
     $('#file-modal').on('hidden.bs.modal', function () {
@@ -308,7 +309,7 @@ $(document).ready(function () {
     $('.nav-tabs a[href="#process-filemodal-mapping"]').on('show.bs.tab', function (event) {
         //load file columns' heading
         $('#process-filemodal-mapping .mapping-loader').show();
-        $('#outputMapping').hide();
+        $('#process-filemodal-mapping .row').hide();
         Ciel.Process.ProcessDesign.CreateJob.loadFileColumns();
     });
 
@@ -330,124 +331,83 @@ $(document).ready(function () {
         return result;
     };
 
-    //$("#existingTable").on('change', function () {
-    //    var tableName = "";
-    //    var selectedColumnTable;
-    //    myDiagramModalOutputTable.nodes.each(function (node) {
-    //        if (node.data.category == "Table" && (node.data.WorkspaceTableName != "Selected Column") && (node.data.WorkspaceTableName != tableText)) {
-    //            tableToRemoveByKey = node.data.key;
-    //            tableName = node.data.WorkspaceTableName;
-    //        }
-    //        if (node.data.category == "Table" && node.data.WorkspaceTableName == "Selected Column") {
-    //            selectedColumnTable = node.data;
-    //        }
-    //    });
-    //    if (confirm('On changing the table selection all the mapping will be lost') === false) {
-    //        $("#existingTable").val(tableName);
-    //        return;
-    //    }
-    //    var tableText = this.value;
-    //    var columnsToRemoveByKey = [];
-    //    var linksToRemove = [];
-    //    var tableToRemoveByKey;
+    $("#existingTable").on('change', function () {
+        var tableName = "";
+        var selectedColumnTable;
+        myDiagramModalOutputTable.nodes.each(function (node) {
+            if (node.data.category == "Table" && (node.data.WorkspaceTableName != "Selected Column") && (node.data.WorkspaceTableName != tableText)) {
+                tableToRemoveByKey = node.data.key;
+                tableName = node.data.WorkspaceTableName;
+            }
+            if (node.data.category == "Table" && node.data.WorkspaceTableName == "Selected Column") {
+                selectedColumnTable = node.data;
+            }
+        });
+        if (confirm('On changing the table selection all the mapping will be lost') === false) {
+            $("#existingTable").val(tableName);
+            return;
+        }
+        var tableText = this.value;
+        var columnsToRemoveByKey = [];
+        var linksToRemove = [];
+        var tableToRemoveByKey;
 
-    //    myDiagramModalOutputTable.nodes.each(function (node) {
-    //        if (node.data.category == "Table" && (node.data.WorkspaceTableName != "Selected Column") && (node.data.WorkspaceTableName != tableText)) {
-    //            tableToRemoveByKey = node.data.key;
-    //        }
-    //    });
+        myDiagramModalOutputTable.nodes.each(function (node) {
+            if (node.data.category == "Table" && (node.data.WorkspaceTableName != "Selected Column") && (node.data.WorkspaceTableName != tableText)) {
+                tableToRemoveByKey = node.data.key;
+            }
+        });
 
-    //    if (tableToRemoveByKey == "undefined") return;          // if selected table is already exist
+        if (tableToRemoveByKey == "undefined") return;          // if selected table is already exist
 
-    //    myDiagramModalOutputTable.startTransaction("change table");
-    //    var model = myDiagramModalOutputTable.model;
-    //    myDiagramModalOutputTable.nodes.each(function (node) {          //getting columns to remove
-    //        if (node.data.group == tableToRemoveByKey && node.data.category == "Column")
-    //            columnsToRemoveByKey.push(node.data.key);
-    //    });
-    //    myDiagramModalOutputTable.links.each(function (link) {           //getting links to remove
-    //        linksToRemove.push(link.data);
+        myDiagramModalOutputTable.startTransaction("change table");
+        var model = myDiagramModalOutputTable.model;
+        myDiagramModalOutputTable.nodes.each(function (node) {          //getting columns to remove
+            if (node.data.group == tableToRemoveByKey && node.data.category == "Column")
+                columnsToRemoveByKey.push(node.data.key);
+        });
+        myDiagramModalOutputTable.links.each(function (link) {           //getting links to remove
+            linksToRemove.push(link.data);
 
-    //    });
+        });
 
-    //    for (i = 0; i < linksToRemove.length; i++) {                    // removing links
-    //        model.removeLinkData(linksToRemove[i]);
-    //    }
+        for (i = 0; i < linksToRemove.length; i++) {                    // removing links
+            model.removeLinkData(linksToRemove[i]);
+        }
 
-    //    for (i = 0; i < columnsToRemoveByKey.length; i++) {                  // removing columns
-    //        model.removeNodeData(model.findNodeDataForKey(columnsToRemoveByKey[i]));
-    //    }
-    //    model.removeNodeData(model.findNodeDataForKey(tableToRemoveByKey));     // removing table
+        for (i = 0; i < columnsToRemoveByKey.length; i++) {                  // removing columns
+            model.removeNodeData(model.findNodeDataForKey(columnsToRemoveByKey[i]));
+        }
+        model.removeNodeData(model.findNodeDataForKey(tableToRemoveByKey));     // removing table
 
 
-    //    var numberOfTables = existingTable.length;
-    //    for (i = 0; i < numberOfTables; i++) {
-    //        if (existingTable[i].WorkspaceTableName == tableText) {
-    //            existingTable[i].isGroup = true;
-    //            var loc = go.Point.parse(selectedColumnTable.loc);
-    //            loc.x += 500;
-    //            existingTable[i].loc = go.Point.stringify(loc);
-    //            model.addNodeData(existingTable[i]);  // adding table
-    //            for (j = 0; j < existingTable[i].Fields.length; j++) {         // adding columns
-    //            debugger;
-    //                var newNodeColumn = {};
-    //                newNodeColumn.group = existingTable[i].key;
-    //                newNodeColumn.category = "Column";
-    //                newNodeColumn.columnname = existingTable[i].Fields[j].COLUMNNAME;
-    //                newNodeColumn.columnid = ("T" + i + "C" + j + "O" + existingTable[i].Fields[j].COLUMNID);
-    //                newNodeColumn.columntype = existingTable[i].Fields[j].COLUMNTYPE;
-    //                model.addNodeData(newNodeColumn);
-    //            }
-    //        }
-    //    }
+        var numberOfTables = existingTable.length;
+        for (i = 0; i < numberOfTables; i++) {
+            if (existingTable[i].WorkspaceTableName == tableText) {
+                existingTable[i].isGroup = true;
+                var loc = go.Point.parse(selectedColumnTable.loc);
+                loc.x += 500;
+                existingTable[i].loc = go.Point.stringify(loc);
+                model.addNodeData(existingTable[i]);  // adding table
+                for (j = 0; j < existingTable[i].Fields.length; j++) {         // adding columns
+                    var newNodeColumn = {};
+                    newNodeColumn.group = existingTable[i].key;
+                    newNodeColumn.category = "Column";
+                    newNodeColumn.columnname = existingTable[i].Fields[j].COLUMNNAME;
+                    newNodeColumn.columnid = ("T" + i + "C" + j + "O" + existingTable[i].Fields[j].COLUMNID);
+                    newNodeColumn.columntype = existingTable[i].Fields[j].COLUMNTYPE;
+                    model.addNodeData(newNodeColumn);
+                }
+            }
+        }
 
-    //    myDiagramModalOutputTable.model = model;
-    //    myDiagramModalOutputTable.commitTransaction("change table");
+        myDiagramModalOutputTable.model = model;
+        myDiagramModalOutputTable.commitTransaction("change table");
 
-    //});
+    });
 
     $("#save_mappings").on('click', function () {
-
-        var isPurgeData = Ciel.Process.ProcessDesign.CreateJob.stepData.isPurgeData();
-        var purgeByColumn = Ciel.Process.ProcessDesign.CreateJob.stepData.purgeByColumn();
-        var purgeOperator = Ciel.Process.ProcessDesign.CreateJob.stepData.purgeOperator();
-        var purgeValue = Ciel.Process.ProcessDesign.CreateJob.stepData.purgeValue();
-        var colType = Ciel.Process.ProcessDesign.CreateJob.stepData.colType;
-        var colSize = Ciel.Process.ProcessDesign.CreateJob.stepData.colSize;
-        if (purgeValue != undefined) {
-            purgeValue = purgeValue.trim();
-
-            switch (colType.toLowerCase()) {
-                case 'nvarchar':
-                case 'char':
-                    var expression = '^([^\.]){1,' + colSize + '}$';
-                    var regex = new RegExp(expression, 'g');
-                    if (!purgeValue.match(regex)) {
-                        $('#help-icon-purge-file-modal1').tooltip('show');
-                        return;
-                    }
-                    break;
-                case 'numeric':
-                    var res = colSize.split(',');
-                    var scale = parseInt(res[1].trim(), 10);
-                    var precision = parseInt(res[0].trim(), 10) - scale;
-                    var expression = '^[0-9]{1,' + precision + '}(?:\.[0-9]{1,' + scale + '})?$';
-                    var regex = new RegExp(expression, 'g');
-                    if (!purgeValue.match(regex)) {
-                        $('#help-icon-purge-file-modal1').tooltip('show');
-                        return;
-                    }
-                    break;
-                case 'datetime2':
-                    var validDate = validateDateFormat(purgeValue);
-                    if (!validDate) {
-                        $('#help-icon-purge-file-modal1').tooltip('show');
-                        return;
-                    }
-                    break;
-            }
-        }        
-
+        
         currentStep.data.modalOutputTablesMapping = JSON.parse(myDiagramModalOutputTable.model.toJSON());
         currentStep.data.modalInputTablesMapping = JSON.parse(myDiagramModalInputTable.model.toJSON());
         var modalOutputTable = {};
@@ -458,9 +418,9 @@ $(document).ready(function () {
             }
         });
         var isFirstTable = true;
-        myDiagramModalInputTable.links.each(function (n) {
-            if (isFirstTable) {
-                currentStep.data.fromTable = n.fromNode.containingGroup.data.WorkspaceTableName;
+        currentStep.findNodesInto().each(function (n) {
+            if (isFirstTable && n.data.category == "Table") {
+                currentStep.data.fromTable = n.data.WorkspaceTableName;
                 isFirstTable = false;
             }
         });
@@ -470,6 +430,72 @@ $(document).ready(function () {
                 modalOutputTable = node.data;
             }
         });
+
+        myDiagramModalInputTable.nodes.each(function (node) {
+            if (node.data.category == "Table" && (Ciel.Process.ProcessDesign.CreateJob.isHasNode(currentStep.data.inputTablesByOrder, node) == -1)) {
+                currentStep.data.inputTablesByOrder.push(node);
+            }
+        });
+        currentStep.data.fromQuery = "From " + currentStep.data.inputTablesByOrder[0].data.WorkspaceTableName;
+        currentStep.data.whereClause = new go.Set("string");  // make a set of strings
+        for (i = 1; i < currentStep.data.inputTablesByOrder.length; i++) {
+            var j = i;
+
+            var expressions = "";
+            var hasLink = false;
+            var relationType;
+            
+
+            while (--j > -1) {
+                var links = currentStep.data.relationExpression[currentStep.data.inputTablesByOrder[j].data.WorkspaceTableName + currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName];
+                if (typeof links==="undefined" ||(typeof links !== "undefined" && links.length === 0)) {
+                    links = currentStep.data.relationExpression[currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName + currentStep.data.inputTablesByOrder[j].data.WorkspaceTableName];
+                }
+                if (typeof links !== "undefined" && links.length !== 0) {
+                    for (k = 0; k < links.length; k++) {
+                        
+                        relationType = links[k].data.toolTipText;
+                        var partIndex = relationType.indexOf(":");
+                        var expression = relationType.substr((partIndex + 2), relationType.length);
+                        if (k == 0) {
+                            expressions += expression;
+                        } else {
+                            expressions += " AND "+expression;
+                        }  
+                    }
+                    hasLink = true;
+                }
+            }
+            if (hasLink) {
+                //var relationType = currentStep.data.relationExpression[currentStep.data.inputTablesByOrder[i - 1].data.WorkspaceTableName + currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName][0].data.toolTipText;
+                var partIndex = relationType.indexOf(":");
+                currentStep.data.fromQuery += "\n " + relationType.substr(0, partIndex) + " " + currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName + " On ";
+                if (relationType.substr(0, partIndex).toLowerCase() == "leftouter") {
+                    currentStep.data.whereClause.add(currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName);
+                } else {
+                    if (relationType.substr(0, partIndex).toLowerCase() == "rightouter") {
+                    currentStep.data.whereClause.add(currentStep.data.inputTablesByOrder[i-1].data.WorkspaceTableName);
+                } else {
+                        currentStep.data.whereClause.add(currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName);
+                        currentStep.data.whereClause.add(currentStep.data.inputTablesByOrder[i - 1].data.WorkspaceTableName);
+                    }
+                }
+                
+            } else {
+                currentStep.data.fromQuery += "\n Cross Join " + currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName + " ";
+            }
+            
+            currentStep.data.fromQuery += expressions;
+        }
+        var whereClause = currentStep.data.whereClause.toArray();
+        currentStep.data.fromQuery += "\n WHERE ";
+        for(i=0; i<whereClause.length; i++) {
+            currentStep.data.fromQuery += whereClause[i] + "=NULL";
+            if (i != (whereClause.length - 1)) {
+                currentStep.data.fromQuery += " AND ";
+            }
+        }
+
 
         var isValidMappings = true;
         myDiagramModalInputTable.links.each(function (link) {
@@ -483,79 +509,11 @@ $(document).ready(function () {
             }
         });
 
-        myDiagramModalInputTable.nodes.each(function (node) {
-           if (node.data.category == "Table" && (Ciel.Process.ProcessDesign.CreateJob.isHasNode(currentStep.data.inputTablesByOrder, node) == -1)) {
-               currentStep.data.inputTablesByOrder.push(node);
-           }
-       });
-        currentStep.data.fromQuery = "From " + currentStep.data.inputTablesByOrder[0].data.WorkspaceTableName;
-        currentStep.data.whereClause = new go.Set("string");  // make a set of strings
-        for (i = 1; i < currentStep.data.inputTablesByOrder.length; i++) {
-            var j = i;
-
-            var expressions = "";
-            var hasLink = false;
-            var relationType;
-
-
-            while (--j > -1) {
-                var links = currentStep.data.relationExpression[currentStep.data.inputTablesByOrder[j].data.WorkspaceTableName + currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName];
-                if (typeof links === "undefined" || (typeof links !== "undefined" && links.length === 0)) {
-                    links = currentStep.data.relationExpression[currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName + currentStep.data.inputTablesByOrder[j].data.WorkspaceTableName];
-                }
-                if (typeof links !== "undefined" && links.length !== 0) {
-                    for (k = 0; k < links.length; k++) {
-
-                        relationType = links[k].data.toolTipText;
-                        var partIndex = relationType.indexOf(":");
-                        var expression = relationType.substr((partIndex + 2), relationType.length);
-                        if (k == 0) {
-                            expressions += expression;
-                        } else {
-                            expressions += " AND " + expression;
-                        }
-
-                        if (relationType.substr(0, partIndex).toLowerCase() == "leftouter") {
-                              currentStep.data.whereClause.add(currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName+"."+links[k].toNode.data.columnname);
-                        } else {
-                                if (relationType.substr(0, partIndex).toLowerCase() == "rightouter") {
-                                    currentStep.data.whereClause.add(currentStep.data.inputTablesByOrder[i - 1].data.WorkspaceTableName+"."+links[k].fromNode.data.columnname);
-                                } else {
-                                    currentStep.data.whereClause.add(currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName+"."+links[k].toNode.data.columnname);
-                                    currentStep.data.whereClause.add(currentStep.data.inputTablesByOrder[i - 1].data.WorkspaceTableName+"."+links[k].fromNode.data.columnname);
-                                    }
-                            }
-                    }
-                    hasLink = true;
-                }
-            }
-            if (hasLink) {
-                //var relationType = currentStep.data.relationExpression[currentStep.data.inputTablesByOrder[i - 1].data.WorkspaceTableName + currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName][0].data.toolTipText;
-                var partIndex = relationType.indexOf(":");
-                currentStep.data.fromQuery += "\n " + relationType.substr(0, partIndex) + " " + currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName + " On ";
-                
-
-            } else {
-                currentStep.data.fromQuery += "\n Cross Join " + currentStep.data.inputTablesByOrder[i].data.WorkspaceTableName + " ";
-            }
-
-            currentStep.data.fromQuery += expressions;
-        }
-        var whereClause = currentStep.data.whereClause.toArray();
-        currentStep.data.fromQuery += "\n WHERE ";
-        for (i = 0; i < whereClause.length; i++) {
-            currentStep.data.fromQuery += whereClause[i] + "=NULL";
-            if (i != (whereClause.length - 1)) {
-                currentStep.data.fromQuery += " AND ";
-            }
-        }
-
-
         if (!isValidMappings) {
             alert("There are invalid mappings present in Joins or Column mappings.");
             canvas.startTransaction("setColor");
             canvas.model.setDataProperty(currentStep.data, "color", "#FF0000");
-            canvas.model.setDataProperty(currentStep.data, "toolTipText", "Please check configuration for this step.");
+            canvas.model.setDataProperty(currentStep.data, "toolTipText", "Please Check configuration for this step.");
             canvas.commitTransaction("setColor");
         } else {
             if (currentStep.data.color === "#FF0000") {
@@ -566,33 +524,69 @@ $(document).ready(function () {
             }
         }
 
-        // adding mappings in order of tables
-        currentStep.data.mappings = [];         // 3# mappings
-        var linksHash = {};
-        myDiagramModalInputTable.links.each(function (link) {
-
-            var relationType = link.data.toolTipText;
-            var partIndex = relationType.indexOf(":");
-            var res = relationType.substr(0, partIndex);
-            var expression = relationType.substr((partIndex + 2), relationType.length);
-            currentStep.data.mappings.push({
-                joinType: res,
-                fromTable: link.fromNode.containingGroup.data.WorkspaceTableName,
-                toTable: link.toNode.containingGroup.data.WorkspaceTableName,
-                joinExpression: expression
-            });
-
-        });
-
         var modalInputTables = myDiagramModalInputTable.model.nodeDataArray;
         var inputTables = [];
         for (i = 0; i < modalInputTables.length; i++) {
 
             if (modalInputTables[i].category == "Table") {
-                inputTables.push(Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(JSON.parse(JSON.stringify(modalInputTables[i]))));
+                inputTables.push(Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(JSON.parse(JSON.stringify(modalInputTables[i]))).WorkspaceTableName);
             }
         }
         currentStep.data["inputTables"] = inputTables;          //1# inputTable to currentStep
+
+        // adding mappings in order of tables
+        currentStep.data.mappings = [];         // 3# mappings
+        var linksHash = {};
+        myDiagramModalInputTable.links.each(function (link) {
+                            
+                                var relationType = link.data.toolTipText;
+                                var partIndex = relationType.indexOf(":");
+                                var res = relationType.substr(0, partIndex);
+                                var expression = relationType.substr((partIndex + 2), relationType.length);
+                                var tableOne = link.fromNode.containingGroup.data.WorkspaceTableName;
+                                var tableTwo = link.toNode.containingGroup.data.WorkspaceTableName;
+                                if (linksHash.hasOwnProperty(tableOne + tableTwo) === false) {
+                                    currentStep.data.mappings.push({
+                                        joinType: res,
+                                        fromTable: tableOne,
+                                        toTable: tableTwo,
+                                        joinExpression: expression
+                                    });
+                                    linksHash[tableOne + tableTwo] = true;
+                                } else {
+                                    function checkMapping(mapping) {
+                                        return mapping.fromTable === tableOne && mapping.toTable === tableTwo;
+                                    }
+                                    currentStep.data.mappings.find(checkMapping).joinExpression+=" AND "+expression;
+                                }
+
+                               
+        });
+
+        //query generating start
+       /* var visited = [];
+        var edges = [];
+        var fromQuery = "";
+        var addEdge = function (vertex1, vertex2) {
+            edges[vertex1].push(vertex2);
+            edges[vertex2].push(vertex1);
+        };
+        for (i = 0; i < currentStep.data.mappings.length; i++) {
+
+            addEdge(currentStep.data.mappings[i].fromTable, currentStep.data.mappings[i].toTable);
+        }
+        var traverseDFS = function (vertex, visited) {
+            visited[vertex] = true;
+            for (var i = 0; i < this.edges[vertex].length; i++) {
+                if (!visited[edges[vertex][i]]) {
+
+                    traverseDFS(edges[vertex][i], visited);
+                }
+            }
+        }; */
+        // query generating end
+       
+        
 
         var outputTable = Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(JSON.parse(JSON.stringify(modalOutputTable)));
         outputTable.isGroup = false;
@@ -633,7 +627,7 @@ $(document).ready(function () {
         if (outputTable.WorkspaceTableName !== undefined) {
             model.addNodeData(outputTable);
 
-            //canvas.commitTransaction("save table");
+            canvas.commitTransaction("save table");
 
             canvas.startTransaction("add link");
             model.addLinkData({
@@ -642,15 +636,6 @@ $(document).ready(function () {
             });
             canvas.commitTransaction("add link");
         }
-        canvas.commitTransaction("save table");
-
-        
-        canvas.startTransaction("purge");
-        canvas.model.setDataProperty(currentStep.data, "IsPurgeData", isPurgeData);
-        canvas.model.setDataProperty(currentStep.data, "PurgeByColumn", purgeByColumn);
-        canvas.model.setDataProperty(currentStep.data, "PurgeOperator", purgeOperator);
-        canvas.model.setDataProperty(currentStep.data, "PurgeValue", purgeValue);
-        canvas.commitTransaction("purge");
 
         $('#stepModal').modal('hide');
     });
@@ -660,22 +645,9 @@ $(document).ready(function () {
     $(window).resize(function () {
         Ciel.Process.ProcessDesign.CreateJob.setPaletteHeight();
     });
-
-
-    $('#dataviewer').scroll(function () {
-        var div = $(this);
-        if (div[0].scrollHeight - div.scrollTop() - 46 <= div.height()) {
-            recordPageNumber = recordPageNumber + 1;
-            Ciel.Process.ProcessDesign.CreateJob.ShowTableData(recordTableName, recordPageNumber, false);
-        }
-
-    });
 });
-function execute() {
-    $(".pageColumns").removeClass("hideBottom minimizeBottom").addClass("showBottom");
-}
+
 (function (ns) {
-    ns.stepData;
     var filesPalette;
     var stepsPalette;
     var tablesPalette;
@@ -683,25 +655,10 @@ function execute() {
     var executeDragOver = false;
     var lightText = 'whitesmoke';
     var goJs = go.GraphObject.make;  // for conciseness in defining templates   
-    var objPropertiesPanelVM;
-    var objshowDataViewModel;
+    var objPropertiesViewModel;
     var modelData;
     var quickSave = false;
     var clearCanvas = false;
-
-    var FileAttributeEnum = {
-        ROW_SEPARATOR: "1",
-        COL_SEPARATOR: "2",
-        QUOTATION: "3",
-        HEAD_ROWS: "4",
-        TRAILING_ROWS: "5",
-        COL_HEADING_IN_FIRST_ROW: "6"
-    }
-
-    var TableTypeEnum = {
-        New: "New",
-        Existing: "Existing"
-    }
 
     var getWindowHeight = function () {
         var wHeight = 0;
@@ -717,20 +674,13 @@ function execute() {
 
     ns.setPaletteHeight = function () {
         var windowHeight = getWindowHeight();
-        $('#filesPaletteDiv').css("height", (windowHeight - 250));
-        $('#stepsPaletteDiv').css("height", (windowHeight - 250));
-        $('#tablesPaletteDiv').css("height", (windowHeight - 250));
+        $('#filesPaletteDiv').css("height", (windowHeight - 230));
+        $('#stepsPaletteDiv').css("height", (windowHeight - 230));
+        $('#tablesPaletteDiv').css("height", (windowHeight - 230));
         $('#canvasDiv').css("height", (windowHeight - 150));
     }
 
     ns.loadFileColumns = function () {
-        $('#colheader-errorresult').hide();
-
-        if (modelData.selectedOutputTableName() == null) {
-            $('#process-filemodal-mapping .mapping-loader').hide();
-            $('#outputMapping').show();
-            return;
-        }
         var nodeData = modelData.node.data;
         var fileInfo = {};
         switch (nodeData.FileType.toUpperCase()) {
@@ -739,18 +689,15 @@ function execute() {
                 fileInfo.FileType = nodeData.FileType;
                 fileInfo.FilePath = nodeData.FilePath;
                 $.each(modelData.fileAttributes(), function (index, attr) {
-                    switch (attr.attributeID) {
-                        case FileAttributeEnum.COL_SEPARATOR:
+                    switch (attr.attributeName) {
+                        case "Column Separator":
                             fileInfo.ColumnSeparator = attr.attributeValue();
                             break;
-                        case FileAttributeEnum.ROW_SEPARATOR:
+                        case "Row Separator":
                             fileInfo.RowSeparator = attr.attributeValue();
                             break;
-                        case FileAttributeEnum.HEAD_ROWS:
+                        case "Header Rows":
                             fileInfo.HeaderRows = attr.attributeValue();
-                            break;
-                        case FileAttributeEnum.QUOTATION:
-                            fileInfo.QuotationsMark = attr.attributeValue();
                             break;
                     }
                 });
@@ -765,31 +712,20 @@ function execute() {
                 break;
         }
 
-        Ciel.Process.Api.GetFileColumns(fileInfo, function (result, status, xhr) {
-            switch (xhr.status) {
-                case CONST_HTTPSTATUS_OK:
-                    var columnsList = xhr.responseJSON.columnsList;
-                    if (modelData.isColumnHeadingPresent() === true) {
-                        modelData.fileColumns(columnsList);
-                    }
-                    else {
-                        var tempCols = [];
-                        for (var i = 0; i < columnsList.length; i++) {
-                            var obj = columnsList[i];
-                            tempCols.push(new fileColumn(obj.id, 'Column ' + (i + 1), obj.seqNo));
-                        }
-                        modelData.fileColumns(tempCols);
-                    }
-                    break;
-
-                case CONST_HTTPSTATUS_UNFINISH:
-                    modelData.fileColumns([]);
-                    $('#colheader-errorresult').show();
-                    break;
+        Ciel.Process.Api.GetFileColumns(fileInfo, function (columnsList) {
+            if (modelData.isColumnHeadingPresent() === true) {
+                modelData.fileColumns(columnsList);
             }
-
+            else {
+                var tempCols = [];
+                for (var i = 0; i < columnsList.length; i++) {
+                    var obj = columnsList[i];
+                    tempCols.push(new fileColumn(obj.id, 'Column ' + (i + 1), obj.seqNo));
+                }
+                modelData.fileColumns(tempCols);
+            }
             $('#process-filemodal-mapping .mapping-loader').hide();
-            $('#outputMapping').show();
+            $('#process-filemodal-mapping .row').show();
         });
     }
 
@@ -1008,43 +944,23 @@ function execute() {
     }
 
     var fileNodeDoubleClicked = function (e, obj) {
-        if (isCanvasReadOnly === false) {
-            modelData.updateModel(obj, tablesPalette);
-            //ko.applyBindings(fileNodeModel);
-            $("#file-modal").modal('show');
-        }
+        modelData.updateModel(obj, tablesPalette);
+        //ko.applyBindings(fileNodeModel);
+        $("#file-modal").modal('show');
     }
 
     var fileNodeClicked = function (e, obj) {
-        if (isCanvasReadOnly) {
-            if (obj.part.data.category.toLowerCase() === "table" || obj.part.data.category.toLowerCase() === "filewithtable") {
-                var tableName;
-                if (obj.part.data.category.toLowerCase() === "filewithtable") {
-                    tableName = obj.part.data.OutputTableName;
-                }
-                else {
-                    tableName = obj.part.data.WorkspaceTableName
-                }
-                recordTableName = tableName;
-
-                Ciel.Process.ProcessDesign.CreateJob.ShowTableData(tableName, 0, true);
-                $(".pageColumns").removeClass("hideBottom minimizeBottom").addClass("showBottom")
-            }
-        }
-        else {
-            $(".pageColumns").removeClass("hideRight").addClass("showRight"),
-             Ciel.Process.ProcessDesign.CreateJob.updateDiagram();
-        }
-
+        $("body").addClass('showRight');
+        Ciel.Process.ProcessDesign.CreateJob.updateDiagram();
         //obj.part.data.fileToTableObj = fileToTableObj;
     }
 
-    var columnMapping = function (sourceColumnName, targetColumnName, targetColumnType, targetColumnSize, func) {
+    var columnMapping = function (sourceColumnName, targetColumnName, targetColumnType, func) {
         var self = this;
         self.sourceColumnName = ko.observable(sourceColumnName);
         self.targetColumnName = ko.observable(targetColumnName);
         self.targetColumnType = ko.observable(targetColumnType);
-        self.targetColumnSize = ko.observable(targetColumnSize);
+
 
         self.targetColumnName.subscribe(function (newValue) {
             var colsArr = func();
@@ -1071,7 +987,7 @@ function execute() {
         self.seqNo = seqNo
     }
 
-    var fileAttribute = function (attributeName, attributeType, attributeValue, isReadOnly, attributeID) {
+    var fileAttribute = function (attributeName, attributeType, attributeValue, isReadOnly) {
         var self = this;
         self.attributeName = attributeName;
         self.attributeType = attributeType;
@@ -1088,21 +1004,19 @@ function execute() {
         }
 
         self.isReadOnly = isReadOnly;
-        self.attributeID = attributeID;
 
         self.attributeValue.subscribe(function (newValue) {
-            if (self.attributeID === FileAttributeEnum.COL_SEPARATOR || self.attributeID === FileAttributeEnum.ROW_SEPARATOR || self.attributeID === FileAttributeEnum.COL_HEADING_IN_FIRST_ROW || self.attributeID === FileAttributeEnum.HEAD_ROWS || self.attributeID === FileAttributeEnum.QUOTATION) {
+            if (self.attributeName === "Column Separator" || self.attributeName === "Row Separator" || self.attributeName === "Column Heading in first data row" || self.attributeName === "Header Rows") {
                 modelData.removeAllMapppings();
             }
         });
     }
 
-    var outputTableColumn = function (columnId, columnName, columnType, columnSize, isUsed) {
+    var outputTableColumn = function (columnId, columnName, columnType, isUsed) {
         var self = this;
         self.columnId = columnId;
         self.columnName = columnName;
         self.columnType = columnType;
-        self.columnSize = columnSize;
         self.isUsed = isUsed;
     }
 
@@ -1127,12 +1041,11 @@ function execute() {
                 initialContentAlignment: go.Spot.Center,
                 resizingTool: new laneResizingTool(),
                 //layout: goJs(groupLayout),
-                isReadOnly: isCanvasReadOnly,
                 mouseDragOver: function (e) {
                     if (executeDragOver) {
                         executeDragOver = false;
                         var nodeCount = 0;
-                        var it = myDiagram.toolManager.draggingTool.draggingParts.iterator;
+                        var it = e.diagram.toolManager.draggingTool.draggingParts.iterator;
                         while (it.next()) {
                             if (nodeCount > 0) {
                                 var node = it.value;
@@ -1150,10 +1063,6 @@ function execute() {
                         if (node.data.category === "File") {
                             modelData.updateModel(node, tablesPalette);
                             $("#file-modal").modal('show');
-                        }
-                        else if (node.data.category === "Table" && node.data.TableType === TableTypeEnum.New) {
-                            node.data.TempID = "New_" + canvas.model.nodeDataArray.length;
-                            ns.tempTablesHandle.addTableToList(node.data);
                         }
                     });
                 },
@@ -1238,31 +1147,25 @@ function execute() {
             e.subject.each(function (node) {
                 if (node.type.Ob !== "Link") {
                     node.findNodesConnected().each(function (n) {
-                        diagram.startTransaction("deleteTable");
+                       
                         if (n.data.category === "Step" && n.data.text === "Join") {
+                            diagram.startTransaction("deleteTable");
                             diagram.model.setDataProperty(n.data, "modalOutputTablesMapping", undefined);
                             diagram.model.setDataProperty(n.data, "modalInputTablesMapping", undefined);
-                            diagram.model.setDataProperty(n.data, "IsPurgeData", undefined);
-                            diagram.model.setDataProperty(n.data, "PurgeByColumn", undefined);
-                            diagram.model.setDataProperty(n.data, "PurgeOperator", undefined);
-                            diagram.model.setDataProperty(n.data, "PurgeValue", undefined);
                             diagram.model.setDataProperty(n.data, "color", "#FF0000");
-                            diagram.model.setDataProperty(n.data, "toolTipText", "Please check configuration for this step.");
+                            diagram.model.setDataProperty(n.data, "toolTipText", "Please Check configuration for this step.");
+                            diagram.commitTransaction("deleteTable");
                         }
 
-                        diagram.commitTransaction("deleteTable");
+                        
                     });
                 } else {
                     if (node.toNode.data.category === "Step" && node.toNode.data.text === "Join") {
                         diagram.startTransaction("deleteTable");
                         diagram.model.setDataProperty(node.toNode.data, "modalOutputTablesMapping", undefined);
                         diagram.model.setDataProperty(node.toNode.data, "modalInputTablesMapping", undefined);
-                        diagram.model.setDataProperty(node.toNode.data, "IsPurgeData", undefined);
-                        diagram.model.setDataProperty(node.toNode.data, "PurgeByColumn", undefined);
-                        diagram.model.setDataProperty(node.toNode.data, "PurgeOperator", undefined);
-                        diagram.model.setDataProperty(node.toNode.data, "PurgeValue", undefined);
                         diagram.model.setDataProperty(node.data, "color", "#FF0000");
-                        diagram.model.setDataProperty(node.data, "toolTipText", "Please check configuration for this step.");
+                        diagram.model.setDataProperty(node.data, "toolTipText", "Please Check configuration for this step.");
                         diagram.commitTransaction("deleteTable");
                     }
 
@@ -1270,19 +1173,17 @@ function execute() {
                         diagram.startTransaction("deleteTable");
                         diagram.model.setDataProperty(node.fromNode.data, "modalOutputTablesMapping", undefined);
                         diagram.model.setDataProperty(node.fromNode.data, "modalInputTablesMapping", undefined);
-                        diagram.model.setDataProperty(node.fromNode.data, "IsPurgeData", undefined);
-                        diagram.model.setDataProperty(node.fromNode.data, "PurgeByColumn", undefined);
-                        diagram.model.setDataProperty(node.fromNode.data, "PurgeOperator", undefined);
-                        diagram.model.setDataProperty(node.fromNode.data, "PurgeValue", undefined);
                         diagram.model.setDataProperty(node.data, "color", "#FF0000");
-                        diagram.model.setDataProperty(node.data, "toolTipText", "Please check configuration for this step.");
+                        diagram.model.setDataProperty(node.data, "toolTipText", "Please Check configuration for this step.");
                         diagram.commitTransaction("deleteTable");
                     }
 
                 }
             });
-        });
 
+
+
+        });
         ns.globalCanvas = canvas;
         canvas.model.copiesArrays = true;
         canvas.model.copiesArrayObjects = true;
@@ -1294,8 +1195,7 @@ function execute() {
           goJs(go.Shape, "LineH", { stroke: "#efefef" }),
           goJs(go.Shape, "LineV", { stroke: "#efefef" }));
 
-        
- //context menu change start
+        //context menu change start
         
         var cxTool = myDiagramModalInputTable.toolManager.contextMenuTool;
         var cxElement = document.getElementById("contextMenu");
@@ -1391,9 +1291,6 @@ function execute() {
         }
 
         //context menu change ends
-
-
-
 
         canvas.addDiagramListener("Modified", function (e) {
             canvasModifiedHandler(e);
@@ -1491,13 +1388,10 @@ function execute() {
         function tableCompareFunction(a, b) {
             var at = a.data.WorkspaceTableName.toLowerCase();
             var bt = b.data.WorkspaceTableName.toLowerCase();
-            if (at === RES_PRC00008.toLowerCase()) return -1;
-            if (bt === RES_PRC00008.toLowerCase()) return 1;
             if (at < bt) return -1;
             if (at > bt) return 1;
             return 0;
         }
-
 
         // initialize the filesPalette that is on the left side of the page
         filesPalette =
@@ -1686,7 +1580,7 @@ function execute() {
         canvas.nodeTemplateMap.add("File",
             goJs(go.Node, "Auto", nodeStyle(),
                 { resizeObjectName: 'shape' },
-                { click: fileNodeClicked, doubleClick: fileNodeDoubleClicked, selectionChanged: objPropertiesPanelVM.updatePropertiesPanel },
+                { click: fileNodeClicked, doubleClick: fileNodeDoubleClicked, selectionChanged: objPropertiesViewModel.updateAttributes },
                 goJs(go.Shape, "Rectangle",
                 {
                     fill: "transparent", stroke: null,
@@ -1715,9 +1609,9 @@ function execute() {
         canvas.nodeTemplateMap.add("FileWithTable",
           goJs(go.Node, "Table", nodeStyle(),
           {
-              click: fileNodeClicked, selectionChanged: objPropertiesPanelVM.updatePropertiesPanel,
+              click: fileNodeClicked, selectionChanged: objPropertiesViewModel.updateAttributes,
               selectionAdorned: false, doubleClick: fileNodeDoubleClicked,//selection
-              selectionChanged: objPropertiesPanelVM.updatePropertiesPanel,
+              selectionChanged: objPropertiesViewModel.updateAttributes,
           },
           goJs(go.Picture, shapeStyle(),
           { row: 1, column: 1, name: "shape", desiredSize: new go.Size(120, 120), minSize: new go.Size(20, 20) }, {
@@ -1755,7 +1649,7 @@ function execute() {
 
         canvas.nodeTemplateMap.add("Table",
              goJs(go.Node, "Table", nodeStyle(), {
-                 click: fileNodeClicked, selectionChanged: objPropertiesPanelVM.updatePropertiesPanel,
+                 click: fileNodeClicked, selectionChanged: objPropertiesViewModel.updateAttributes,
                  selectionAdorned: false,//selection
              },
 
@@ -1915,431 +1809,32 @@ function execute() {
         });
     }
 
-    var field = function (COLUMNID, COLUMNNAME, COLUMNTYPE, COLUMNSIZE) {
-        var self = this;
-        self.COLUMNID = COLUMNID;
-        self.COLUMNNAME = ko.observable(COLUMNNAME);
-        self.COLUMNTYPE = ko.observable(COLUMNTYPE);
-        self.COLUMNSIZE = ko.observable(COLUMNSIZE);
-    }
-
     var tableModel = function () {
         var self = this;
         self.node = {};
-        self.EditMode = ko.observable(false);
-        self.Datatypes = ['String - Fixed Length (Without Unicode)', 'String - Fixed Length (With Unicode)', 'String - Dynamic length(Without Unicode)', 'String - Dynamic length (With Unicode)', 'number', 'date', 'time', 'CLOB', 'BLOB'];
         self.TableName = ko.observable('');
         self.TableType = ko.observable('');
-        self.IsTemporary = ko.observable(false);
         self.Fields = ko.observableArray([]);
-        self.ErrorList = ko.observableArray([]);
-
-        self.ErrorList.subscribe(function (newValue) {
-            if (self.ErrorList().length <= 0) {
-                $("#table-modal .error-div").css('display', 'none');
-            }
-            else {
-                $("#table-modal .error-div").css('display', 'block');
-            }
-        });
-
         self.UpdateTableModel = function (node) {
-            self.node = node;
             self.TableName(node.data.WorkspaceTableName);
-            self.IsTemporary(node.data.IsTemporary);
-            self.ErrorList(JSON.parse(JSON.stringify(node.data.ErrorList)));
-            self.Fields([]);
-            if (node.data.IsTemporary || ns.newTablesHandle.indexOf(node.data) > -1) {
-                self.TableType(TableTypeEnum.New);
-                self.EditMode(self.TableType() === TableTypeEnum.New);
-                var tempCols = [];
-                $.each(node.data.Fields, function (key, value) {
-                    tempCols.push(new field(value.COLUMNID, value.COLUMNNAME, value.COLUMNTYPE, value.COLUMNSIZE));
-                });
-                if (tempCols.length === 0) {
-                    self.addColumn();
-                }
-                else {
-                    self.Fields(tempCols);
-                }
-            }
-            else {
-                self.TableType(node.data.TableType);
-                self.EditMode(self.TableType() === TableTypeEnum.New);
-                self.Fields(node.data.Fields);
-            }
-        }
-        
-
-        self.saveTableData = function () {
-
-            if (self.EditMode()) {
-                self.validateColumnName();
-                if (self.TableName() == "") {
-                    var ele = $('#table-name');
-                    ele.closest("div").addClass("has-error");
-                    ele.css('border-color', 'red');
-                    title = 'Table Name cannot be empty! ';
-                    var options = {
-                        placement: ele.data('placement') || 'top'
-                    }
-                    ele.attr("title", title).tooltip(options).tooltip('fixTitle').tooltip('show');
-                }
-                else {
-                    var ele = $('#table-name');
-                    if (ele.closest("div").hasClass("has-error")) {
-                        ele.closest("div").removeClass("has-error");
-                        ele.css('border-color', '');
-                        ele.tooltip("destroy");
-                    }
-                }
-
-                if(self.Fields().length <= 0){
-                    self.addError('Table cannot be created without columns');
-                }
-                else if ($("#table-modal .tab-content .has-error").length > 0) {
-                    self.addError('One or more validations failed');
-                }
-                else if (self.TableName() != "") {
-                    self.ErrorList([]);
-                    //if (self.IsTemporary() === false && self.node.data.IsTemporary === true && ns.newTablesHandle.indexOf(self.node.data) === -1) {
-                    if (self.IsTemporary() === false && self.node.data.IsTemporary === true) {
-                        //if table is marked from temporary to permanent then add it to new tables list
-                        self.node.data.TableType = TableTypeEnum.Existing;
-                        ns.tempTablesHandle.removeTableFromList(self.node.data);
-                        ns.newTablesHandle.addTableToList(self.node.data);
-                    }
-                    else if (self.IsTemporary() === true && self.node.data.IsTemporary === false) {
-                        //if table is marked from permanent to temporary then add it to temp tables list
-                        self.node.data.TableType = TableTypeEnum.New;
-                        ns.newTablesHandle.removeTableFromList(self.node.data);
-                        ns.tempTablesHandle.addTableToList(self.node.data);
-                    }
-                    else if (self.IsTemporary()) {
-                        //update data in temp tables list
-                        ns.tempTablesHandle.updateTableInList(self.node.data);
-                    }
-                    else {
-                        //update data in new tables list
-                        ns.newTablesHandle.updateTableInList(self.node.data);
-                    }
-
-                    self.node.diagram.model.startTransaction("set table properties");
-                    self.node.diagram.model.setDataProperty(self.node.data, "WorkspaceTableName", self.TableName());
-                    self.node.diagram.model.setDataProperty(self.node.data, "Fields", ko.toJS(self.Fields()));
-                    self.node.diagram.model.setDataProperty(self.node.data, "IsTemporary", self.IsTemporary());
-                    self.node.diagram.model.setDataProperty(self.node.data, "ErrorList", self.ErrorList());
-                    self.node.diagram.model.commitTransaction("set table properties");
-
-                    objPropertiesPanelVM.updatePropertiesPanel(self.node);
-                    $('#table-modal').modal('hide');
-                }
-            }
-            else {
-                $('#table-modal').modal('hide');
-            }
-
-        }
-
-        self.addColumn = function () {
-            self.Fields.push(new field("", "", "varchar", 2000));
-        }
-
-        self.removeColumn = function (column) {
-            self.Fields.remove(column);
-        };
-
-        self.removeError = function (item, event) {
-            //$(event.target).closest('.tag').remove();
-            self.ErrorList.splice(self.ErrorList.indexOf(item), 1)
-        }
-
-        self.addError = function (err) {
-            if (self.ErrorList.indexOf(err) === -1) {
-                self.ErrorList.push(err);
-            }
-        }
-
-        self.closeModal = function () {
-            var ele = $('#table-name');
-            if (ele.closest("div").hasClass("has-error")) {
-                ele.closest("div").removeClass("has-error");
-                ele.css('border-color', '');
-                ele.tooltip("destroy");
-            }
-            $("#table-modal .error-div").css('display', 'none');
-            $('#table-modal').modal('hide');
-        }
-
-        self.validateColumnName = function () {
-            var colNameArr = [];
-            $("#tableFields tbody .columnname").each(function (idx, item) {
-                colNameArr.push($(item).val());
-            });
-            $("#tableFields tbody .columnname").each(function (idx, item) {
-                if ($(item).parents("td").hasClass("has-error")) {
-                    $(item).parents("td").removeClass("has-error");
-                    $(item).css('border-color', '');
-                    $(item).tooltip("destroy");
-                }
-                if ($(item).val() === "") {
-                    $(item).parents("td").addClass("has-error");
-                    $(item).css('border-color', 'red');
-                    title = 'Column Name cannot be empty! ';
-                    var options = {
-                        placement: $(item).data('placement') || 'top'
-                    }
-                    $(item).attr("title", title).tooltip(options).tooltip('fixTitle').tooltip('show');
-                }
-                else if (colNameArr.indexOf($(item).val()) != idx || colNameArr.indexOf($(item).val(), idx + 1) != -1) {
-                    $(item).parents("td").addClass("has-error");
-                    $(item).css('border-color', 'red');
-                    title = 'Column Name should be unique! ';
-                    var options = {
-                        placement: $(item).data('placement') || 'top'
-                    }
-                    $(item).attr("title", title).tooltip(options).tooltip('fixTitle').tooltip('show');
-                }
-            });
-
-            $("#tableFields tbody .columnsize").each(function (idx, item) {
-                if ($(item).parents("td").hasClass("has-error")) {
-                    $(item).parents("td").removeClass("has-error");
-                    $(item).css('border-color', '');
-                    $(item).tooltip("destroy");
-                }
-                if ($(item).val() === "") {
-                    $(item).parents("td").addClass("has-error");
-                    $(item).css('border-color', 'red');
-                    title = 'Column Size cannot be empty! ';
-                    var options = {
-                        placement: $(item).data('placement') || 'top'
-                    }
-                    $(item).attr("title", title).tooltip(options).tooltip('fixTitle').tooltip('show');
-                }
-            });
-
+            self.TableType(node.data.TableType);
+            self.Fields(node.data.Fields);
         }
     }
 
-    var stepModel = function () {
-        var self = this;
-
-        self.selectedOutputTableName = ko.observable();
-        self.outputTables = ko.observableArray([]);
-        self.isPurgeData = ko.observable(false);
-        self.purgeByColumn = ko.observable();
-        self.purgeOperator = ko.observable();
-        self.purgeValue = ko.observable();
-        self.operatorList = ko.observableArray(['=', '<>', '>', '<', '>=', '<=']);
-        self.colType = '';
-        self.colSize = '';
-        self.purgeByColumn.subscribe(function (newValue) {
-            self.purgeValue("");
-            self.purgeOperator("");
-            self.colType = '';
-            self.colSize = '';
-            self.operatorList(['=', '<>', '>', '<', '>=', '<=']);
-
-            if (newValue == undefined) {
-                $('#help-icon-purge-file-modal1').attr('data-original-title', '').tooltip('hide');
-            }
-
-            var selectedTable = $('#existingTable option:selected').val();
-            var tables = tablesPalette.model.nodeDataArray;
-
-            var table = tables.find(function (obj) {
-                return obj.WorkspaceTableName === selectedTable;
-            });
-
-            var field;
-            if (table) {
-                field = table.Fields.find(function (obj) {
-                    return obj.COLUMNNAME === newValue;
-                });
-
-                if (field) {
-                    self.colType = field.COLUMNTYPE;
-                    self.colSize = field.COLUMNSIZE;                    
-                    var message = GetPurgeValidationMessages(field.COLUMNTYPE, field.COLUMNSIZE);
-                    if (self.colType.toLowerCase() === 'nvarchar' || self.colType.toLowerCase() === 'char') {
-                        self.operatorList(['=', '<>']);
-                    }
-                    //switch (self.colType.toLowerCase()) {
-                    //    case 'nvarchar':
-                    //    case 'char':
-                    //        self.operatorList(['=', '<>']);
-                    //        message = 'The selected field is of type <b>' + self.colType + '(' + self.colSize + ').</b><br/>The purge data value is required and takes at the most ' + self.colSize + ' character(s) with out dots(.)';
-                    //        break;
-                    //    case 'numeric':
-                    //        var res = self.colSize.split(',');
-                    //        var scale = parseInt(res[1].trim(), 10);
-                    //        var precision = parseInt(res[0].trim(), 10) - scale;
-                    //        message = 'The selected field is of type <b>' + self.colType + '(' + self.colSize + ').</b><br/>The purge data value is required and takes at the most ' + precision + ' digits before and ' + scale + ' digits after decimal.';
-                    //        break;
-                    //    case 'datetime2':
-                    //        message = 'The selected field is of type <b>' + self.colType + '.</b><br/>The purge data value is required and it must a valid date in the format YYYY/MM/DD.';
-                    //        break;
-                    //}
-
-                    $('#help-icon-purge-file-modal1').attr('data-original-title', message).tooltip('show');
-
-                }
-            }
-        });
-
-        self.resetData = function () {
-            self.purgeValue("");
-            self.purgeByColumn("");
-            self.purgeOperator("");
-        }
-
-        self.outputTableChange = function (newValue, event) {
-            if (event.originalEvent != undefined) {
-                if (event.originalEvent.isTrusted) {
-                    existingTableChange(newValue.selectedOutputTableName());
-                    self.isPurgeData(false);
-                    self.purgeValue("");
-                    self.purgeOperator("");
-                }
-            }
-        };
-        /* column list of selected Table */
-        self.getColumnsByTableName = ko.computed(function () {
-            var result = ko.utils.arrayFilter(self.outputTables(), function (item) {
-                return item.tableName == self.selectedOutputTableName();
-            });
-
-            if (result && result.length > 0 && result[0].columns().length > 0) {
-
-                return result[0].columns();
-            }
-            return [];
-        }, this);
-
-        self.updateModel = function (node, tablesPaletteIn) {
-            var tables = tablesPaletteIn.model.nodeDataArray;
-            self.node = node;
-            self.outputTables([]);
-
-            for (var i = 0; i < tables.length; i++) {
-                var columns = [];
-                for (j = 0; j < tables[i].Fields.length; j++) {
-                    columns.push(new outputTableColumn(tables[i].Fields[j].COLUMNID, tables[i].Fields[j].COLUMNNAME, tables[i].Fields[j].COLUMNTYPE, false));
-                }
-                self.outputTables.push(new outputTable(tables[i].WorkspaceTableName, columns, false, tables[i].TableType === "Temporary"));
-            }
-        }
-
-        self.updateModelForPurge = function (node, tablesPaletteIn) {
-            self.isPurgeData(node.data.IsPurgeData);
-            self.purgeByColumn(node.data.PurgeByColumn);
-            self.purgeOperator(node.data.PurgeOperator);
-            self.purgeValue(node.data.PurgeValue);
-        }
-    }
 
     var newFileModel = function () {
         var self = this;
         self.node = {};
-        self.FileAttributeEnum = FileAttributeEnum;
-        self.fileName = ko.observable();
-        self.columnSeparators = ko.observableArray([]);
-        self.rowSeparators = ko.observableArray([]);
-        self.quotations = [];
-        self.fileColumns = ko.observableArray([]);
-        self.fileAttributes = ko.observableArray([]);
-        //self.isColumnHeadingPresent.subscribe(function (newValue) {
-        //    self.removeAllMapppings();
-        //});
-        self.outputTables = ko.observableArray([]);
-        self.selectedOutputTableName = ko.observable();
-        self.columnMappings = ko.observableArray();
         self.isNewOutputTable = ko.observable(false);
         self.newOutputTableName = ko.observable();
         self.isTempTable = ko.observable(false);
-        self.isPurgeData = ko.observable(false);
-        self.purgeByColumn = ko.observable();
-        self.purgeOperator = ko.observable();
-        self.purgeValue = ko.observable();
         self.isColumnHeadingPresent = ko.observable();
-        self.operatorList = ko.observableArray(['=', '<>', '>', '<', '>=', '<=']);
-        self.colType = '';
-        self.colSize = '';
-        self.purgeByColumn.subscribe(function (newValue) {
-            self.purgeValue("");
-            self.purgeOperator("");
-            self.colType = '';
-            self.colSize = '';
-            self.operatorList(['=', '<>', '>', '<', '>=', '<=']);
 
-            if (newValue == undefined) {
-                $('#help-icon-purge-file-modal').attr('data-original-title', '').tooltip('hide');
-            }
-
-            var selectedTable = $('#out-table-select option:selected').val();
-            var tables = tablesPalette.model.nodeDataArray;
-
-            var table = tables.find(function (obj) {
-                return obj.WorkspaceTableName === selectedTable;
-            });
-
-            var field;
-            if (table) {
-                field = table.Fields.find(function (obj) {
-                    return obj.COLUMNNAME === newValue;
-                });
-                
-                if (field) {
-                    self.colType = field.COLUMNTYPE;
-                    self.colSize = field.COLUMNSIZE;
-                    var message = GetPurgeValidationMessages(field.COLUMNTYPE, field.COLUMNSIZE);
-                    if (self.colType.toLowerCase() === 'nvarchar' || self.colType.toLowerCase() === 'char') {
-                        self.operatorList(['=', '<>']);
-                    }
-                    //var message = '';
-                    //switch (self.colType.toLowerCase()) {
-                    //    case 'nvarchar':
-                    //    case 'char':
-                    //        self.operatorList(['=', '<>']);
-                    //        message = 'The selected field is of type <b>' + self.colType + '(' + self.colSize + ').</b><br/>The purge data value is required and takes at the most ' + self.colSize + ' character(s) with out dots(.)';
-                    //        break;
-                    //    case 'numeric':
-                    //        var res = self.colSize.split(',');
-                    //        var scale = parseInt(res[1].trim(), 10);
-                    //        var precision = parseInt(res[0].trim(), 10) - scale;
-                    //        message = 'The selected field is of type <b>' + self.colType + '(' + self.colSize + ').</b><br/>The purge data value is required and takes at the most ' + precision + ' digits before and ' + scale + ' digits after decimal.';
-                    //        break;
-                    //    case 'datetime2':
-                    //        message = 'The selected field is of type <b>' + self.colType + '.</b><br/>The purge data value is required and it must a valid date in the format YYYY/MM/DD.';
-                    //        break;
-                    //}
-
-                    $('#help-icon-purge-file-modal').attr('data-original-title', message).tooltip('show');
-
-                }
-            }
-        });        
-
-        self.resetData = function () {
-            self.purgeValue("");
-            self.purgeByColumn("");
-            self.purgeOperator("");
-        }
-        
-        self.outputTableChange = function (newValue, event) {
-            if (event.originalEvent != undefined) {
-                if (event.originalEvent.isTrusted) {
-                    self.isPurgeData(false);
-                    self.purgeValue("");
-                    self.purgeOperator("");                    
-                }
-            }
-        };
-
+        self.selectedOutputTableName = ko.observable();
         self.selectedOutputTableName.subscribe(function (newValue) {
             if (newValue === "New Table") {
-                self.isNewOutputTable(true);
+                self.isNewOutputTable = true;
             }
             $.each(self.outputTables(), function (index, value) {
                 if (value.tableName === newValue) {
@@ -2349,7 +1844,18 @@ function execute() {
             self.removeAllMapppings();
         });
 
-        
+
+        self.fileName = ko.observable();
+        self.columnSeparators = ko.observableArray([]);
+        self.rowSeparators = ko.observableArray([]);
+        self.fileColumns = ko.observableArray([]);
+        self.fileAttributes = ko.observableArray([]);
+        //self.isColumnHeadingPresent.subscribe(function (newValue) {
+        //    self.removeAllMapppings();
+        //});
+        self.outputTables = ko.observableArray([]);
+
+        self.columnMappings = ko.observableArray();
 
         self.removeMapping = function (columnMapping) {
             self.columnMappings.remove(columnMapping);
@@ -2365,12 +1871,7 @@ function execute() {
             });
 
             if (!match) {
-                if (self.isNewOutputTable()) {
-                    self.columnMappings.push(new columnMapping(data.columnName, data.columnName, 'String - Fixed Length (Without Unicode)', '2000', self.getColumnsByTableName));
-                }
-                else {
-                    self.columnMappings.push(new columnMapping(data.columnName, '', '', '', self.getColumnsByTableName));
-                }
+                self.columnMappings.push(new columnMapping(data.columnName, '', '', self.getColumnsByTableName));
             }
         };
 
@@ -2380,15 +1881,16 @@ function execute() {
             });
 
             if (result && result.length > 0 && result[0].columns().length > 0) {
+
                 return result[0].columns();
             }
-            return [];
+            return null;
         }, this);
 
-        //self.setOptionDisable = function (option, item) {
-        //    if (item)
-        //        ko.applyBindingsToNode(option, { disable: item.disable }, item);
-        //};
+        self.setOptionDisable = function (option, item) {
+            if (item)
+                ko.applyBindingsToNode(option, { disable: item.disable }, item);
+        };
 
         self.setOptionDisableColumn = function (option, item) {
             if (item)
@@ -2398,43 +1900,12 @@ function execute() {
         self.saveProperties = function () {
             var vm = ko.dataFor($('#file-modal')[0]);
             var node = vm.node;
-            
-            if (self.purgeValue() != undefined) {
-                var purgeVal = self.purgeValue().trim();
-                switch (vm.colType.toLowerCase()) {
-                    case 'nvarchar':
-                    case 'char':
-                        var expression = '^([^\.]){1,' + vm.colSize + '}$';
-                        var regex = new RegExp(expression, 'g');
-                        if (!purgeVal.match(regex)) {
-                            $('#help-icon-purge-file-modal').tooltip('show');
-                            //$('.nav-tabs a[href="#file-output-tab"]').tab('show');
-                            return;
-                        }
-                        break;
-                    case 'numeric':
-                        var res = vm.colSize.split(',');
-                        var scale = parseInt(res[1].trim(), 10);
-                        var precision = parseInt(res[0].trim(), 10) - scale;
-                        var expression = '^[0-9]{1,' + precision + '}(?:\.[0-9]{1,' + scale + '})?$';
-                        var regex = new RegExp(expression, 'g');
-                        if (!purgeVal.match(regex)) {
-                            $('#help-icon-purge-file-modal').tooltip('show');
-                            //$('.nav-tabs a[href="#file-output-tab"]').tab('show');
-                            return;
-                        }
-                        break;
-                    case 'datetime2':
-                        var validDate = validateDateFormat(purgeVal);
-                        if (!validDate) {
-                            $('#help-icon-purge-file-modal').tooltip('show');
-                            //$('.nav-tabs a[href="#file-output-tab"]').tab('show');
-                            return;
-                        }
-                        break;
-                }
+
+            if (self.selectedOutputTableName() && vm.columnMappings().length == 0) {
+                alert("Column mappings must be defined to save the properties!");
+                return false;
             }
-            
+
 
             if (!(self.columnMappings == null)) {
 
@@ -2454,15 +1925,11 @@ function execute() {
             node.diagram.model.startTransaction("set file properties");
             node.diagram.model.setDataProperty(node.data, "OutputTableName", self.selectedOutputTableName());
             node.diagram.model.setDataProperty(node.data, "IsOutputTableTemporary", self.isTempTable());
-            node.diagram.model.setDataProperty(node.data, "IsPurgeData", self.isPurgeData());
-            node.diagram.model.setDataProperty(node.data, "PurgeByColumn", self.purgeByColumn());
-            node.diagram.model.setDataProperty(node.data, "PurgeOperator", self.purgeOperator());
-            node.diagram.model.setDataProperty(node.data, "PurgeValue", self.purgeValue());
 
             self.node.data["ColumnMappings"] = [];
             if (!(self.columnMappings == null)) {
                 $.each(self.columnMappings(), function (index, value) {
-                    tempColumnMappings.push({ sourceColumnName: value.sourceColumnName(), targetColumnName: value.targetColumnName(), targetColumnType: value.targetColumnType(), targetColumnSize: value.targetColumnSize(), getColumnsByTableName: self.getColumnsByTableName });
+                    tempColumnMappings.push({ sourceColumnName: value.sourceColumnName(), targetColumnName: value.targetColumnName(), targetColumnType: value.targetColumnType(), getColumnsByTableName: self.getColumnsByTableName });
                 });
             }
             node.diagram.model.setDataProperty(node.data, "ColumnMappings", tempColumnMappings);
@@ -2480,7 +1947,7 @@ function execute() {
             else {
                 canvas.model.setCategoryForNodeData(node.data, "FileWithTable");
             }
-            objPropertiesPanelVM.updatePropertiesPanel(node);
+            objPropertiesViewModel.updateAttributes(node);
             $("#file-modal").modal('hide');
 
             delete vm.node;
@@ -2501,80 +1968,54 @@ function execute() {
             self.fileAttributes.push(new fileAttribute('File Path', 'string', node.data.FilePath, true));
             self.fileAttributes.push(new fileAttribute('File Type', 'string', node.data.FileType, true));
 
+            //self.fileColumns([]);
+            //for (var i = 0; i < node.data.Columns.length; i++) {
+            //    var obj = node.data.Columns[i];
+            //    self.fileColumns.push(new fileColumn(obj.id, obj.name, obj.seqNo));
+            //}
+
             for (var i = 0; i < node.data.FileAttributes.length; i++) {
                 var attr = new fileAttribute(node.data.FileAttributes[i].FILEATTRIBUTENAME,
-                        node.data.FileAttributes[i].FILEATTRIBUTETYPE, node.data.FileAttributes[i].FILEATTRIBUTEVALUE, false, node.data.FileAttributes[i].FILEATTRIBUTEID);
+                        node.data.FileAttributes[i].FILEATTRIBUTETYPE, node.data.FileAttributes[i].FILEATTRIBUTEVALUE, false);
 
-                if (node.data.FileAttributes[i].FILEATTRIBUTEID === FileAttributeEnum.COL_SEPARATOR) {
+                if (node.data.FileAttributes[i].FILEATTRIBUTENAME === "Column Separator") {
                     self.columnSeparators(node.data.FileAttributes[i].FILEATTRIBUTEMASTERDATA);
                 }
-                else if (node.data.FileAttributes[i].FILEATTRIBUTEID === FileAttributeEnum.ROW_SEPARATOR) {
+                else if (node.data.FileAttributes[i].FILEATTRIBUTENAME === "Row Separator") {
                     self.rowSeparators(node.data.FileAttributes[i].FILEATTRIBUTEMASTERDATA);
                 }
-                else if (node.data.FileAttributes[i].FILEATTRIBUTEID === FileAttributeEnum.QUOTATION) {
-                    self.quotations = node.data.FileAttributes[i].FILEATTRIBUTEMASTERDATA;
-                }
-                else if (node.data.FileAttributes[i].FILEATTRIBUTEID === FileAttributeEnum.COL_HEADING_IN_FIRST_ROW) {
+                else if (node.data.FileAttributes[i].FILEATTRIBUTENAME === "Column Heading in first data row") {
                     self.isColumnHeadingPresent = attr.attributeValue;
                 }
                 self.fileAttributes.push(attr);
             }
 
             self.outputTables([]);
-            self.outputTables.push(new outputTable("New Table", [new outputTableColumn(0, '', '', '', false)], false, true));
+            self.outputTables.push(new outputTable("New Table", [new outputTableColumn(0, '', '', false)], true));
             for (var i = 0; i < tables.length; i++) {
-                if (tables[i].WorkspaceTableName !== "New Table"){
-                    var columns = [];
-                    for (j = 0; j < tables[i].Fields.length; j++) {
-                        columns.push(new outputTableColumn(tables[i].Fields[j].COLUMNID, tables[i].Fields[j].COLUMNNAME, tables[i].Fields[j].COLUMNTYPE, tables[i].Fields[j].COLUMNSIZE, false));
-                    }
-                    self.outputTables.push(new outputTable(tables[i].WorkspaceTableName, columns, false, tables[i].TableType === "Temporary"));
+                var columns = [];
+                for (j = 0; j < tables[i].Fields.length; j++) {
+                    columns.push(new outputTableColumn(tables[i].Fields[j].COLUMNID, tables[i].Fields[j].COLUMNNAME, tables[i].Fields[j].COLUMNTYPE, false));
                 }
+                self.outputTables.push(new outputTable(tables[i].WorkspaceTableName, columns, false, tables[i].TableType === "Temporary"));
             }
             self.selectedOutputTableName(node.data.OutputTableName);
 
             self.columnMappings([]);
             if (!(node.data.ColumnMappings == null)) {
                 $.each(node.data.ColumnMappings, function () {
-                    self.columnMappings.push(new columnMapping($(this)[0].sourceColumnName, $(this)[0].targetColumnName, $(this)[0].targetColumnType, $(this)[0].targetColumnSize, self.getColumnsByTableName));
+                    self.columnMappings.push(new columnMapping($(this)[0].sourceColumnName, $(this)[0].targetColumnName, $(this)[0].targetColumnType, self.getColumnsByTableName));
                 });
             }
-
-            self.isPurgeData(node.data.IsPurgeData);
-            self.purgeByColumn(node.data.PurgeByColumn);
-            self.purgeOperator(node.data.PurgeOperator);
-            self.purgeValue(node.data.PurgeValue);
         }
     }
 
-    function GetPurgeValidationMessages(colType, colSize) {
-        var message = '';
-        switch (colType.toLowerCase()) {
-            case 'nvarchar':
-            case 'char':
-                //self.operatorList(['=', '<>']);
-                message = 'The selected field is of type <b>' + colType + '(' + colSize + ').</b><br/>The purge data value is required and takes at the most ' + colSize + ' character(s) with out dots(.)';
-                break;
-            case 'numeric':
-                var res = colSize.split(',');
-                var scale = parseInt(res[1].trim(), 10);
-                var precision = parseInt(res[0].trim(), 10) - scale;
-                message = 'The selected field is of type <b>' + colType + '(' + colSize + ').</b><br/>The purge data value is required and takes at the most ' + precision + ' digits before and ' + scale + ' digits after decimal.';
-                break;
-            case 'datetime2':
-                message = 'The selected field is of type <b>' + colType + '.</b><br/>The purge data value is required and it must a valid date in the format YYYY/MM/DD.';
-                break;
-        }
-        return message;
-    }
-
-    //Model used for properties in the PropertiesPanel
-    function PropertiesPanelAttribute(node, container, updatableAttributeName, displayName, attributeValue, attributeType, additionalData, attributeID) {
+    //Model used for properties in the right panel
+    function Attribute(node, container, updatableAttributeName, displayName, attributeValue, attributeType, additionalData) {
         var self = this;
         self.DisplayName = displayName;
-        self.AttributeID = attributeID;
         self.AttributeType = attributeType;
-        //self.oldValue = '';
+        self.oldValue = '';
         if (self.AttributeType == "boolean") {
             //If AttributeType is boolean then convert its value to boolean
             self.AttributeValue = ko.observable(attributeValue === "1" || attributeValue === true);
@@ -2591,38 +2032,17 @@ function execute() {
         self.AttributeValue.subscribe(function (newValue) {
             if (self.UpdatableAttributeName == null) return;
             if (node) {
-                if (node.category === "Table" && self.UpdatableAttributeName === "WorkspaceTableName") {
-                    if (newValue === "") {
-                        self.AttributeValue(container[self.UpdatableAttributeName]); //TODO: move on before change
-                        return;
-                    }
-                }
+                var tempFileAttributes = JSON.parse(JSON.stringify(node.data.FileAttributes));
+                var fileAttributeObj = tempFileAttributes.filter(function (item) { return item.FILEATTRIBUTEID == container.FILEATTRIBUTEID });
+
+                fileAttributeObj[0]["FILEATTRIBUTEVALUE"] = newValue;
 
                 node.diagram.model.startTransaction("properties pane");
-                node.diagram.model.setDataProperty(container, self.UpdatableAttributeName, newValue);
+                node.diagram.model.setDataProperty(node.data, "FileAttributes", tempFileAttributes);
                 node.diagram.model.commitTransaction("properties pane");
-                if (node.category === "File" || node.category === "FileWithTable") {
-                    if (self.AttributeID === FileAttributeEnum.COL_SEPARATOR || self.AttributeID === FileAttributeEnum.ROW_SEPARATOR || self.AttributeID === FileAttributeEnum.COL_HEADING_IN_FIRST_ROW || self.AttributeID === FileAttributeEnum.HEAD_ROWS || self.AttributeID === FileAttributeEnum.QUOTATION) {
-                        node.data.ColumnMappings = [];
-                    }
-                }
-                else if (node.category === "Table") {
-                    if (self.UpdatableAttributeName === "IsTemporary") {
-                        if (newValue) {
-                            node.data.TableType = TableTypeEnum.New;
-                            //if table is marked from permanent to temporary then add it to temp tables list
-                            ns.newTablesHandle.removeTableFromList(node.data);
-                            ns.tempTablesHandle.addTableToList(node.data);
 
-                        }
-                        else {
-                            node.data.TableType = TableTypeEnum.Existing;
-                            //if table is marked from temporary to permanent then add it to new tables list
-                            ns.tempTablesHandle.removeTableFromList(self.node.data);
-                            ns.newTablesHandle.addTableToList(self.node.data);
-                        }
-                    }
-
+                if (self.DisplayName === "Column Separator" || self.DisplayName === "Row Separator" || self.DisplayName === "Column Heading in first data row" || self.DisplayName === "Header Rows") {
+                    node.data.ColumnMappings = [];
                 }
                 node.updateTargetBindings();
             }
@@ -2632,10 +2052,10 @@ function execute() {
             }
         });
 
-        //self.AttributeValue.subscribe(function (oldValue) {
-        //    console.log(oldValue);
-        //    self.oldValue = oldValue;
-        //}, self, "beforeChange");
+        self.AttributeValue.subscribe(function (oldValue) {
+            console.log(oldValue);
+            self.oldValue = oldValue;
+        }, self, "beforeChange");
 
         self.modalOpen = function (data, event) {
             if (data.AdditionalData === 'File') {
@@ -2660,132 +2080,45 @@ function execute() {
         showJobModal();
     }
 
-    function PropertiesPanelViewModel() {
+    function PropertiesViewModel() {
         var self = this;
         // Editable data
         self.attributes = ko.observableArray([]);
 
-        //updates the Properties panel when a node is selected
-        self.updatePropertiesPanel = function (node) {
+        //updates the right panel when a node is selected
+        self.updateAttributes = function (node) {
             if (node == undefined) canvas.clearSelection();
             self.attributes([]);
             if (node && node.diagram.selection.count === 1) {
 
                 if (node.category === "File" || node.category === "FileWithTable") {
-                    self.attributes.push(new PropertiesPanelAttribute(node, node.data, null, "File Name", node.data.FileName));
-                    self.attributes.push(new PropertiesPanelAttribute(node, node.data, null, "File Type", node.data.FileType));
-                    self.attributes.push(new PropertiesPanelAttribute(node, node.data, null, "File Path", node.data.FilePath));
+                    self.attributes.push(new Attribute(node, node.data, null, "File Name", node.data.FileName));
+                    self.attributes.push(new Attribute(node, node.data, null, "File Type", node.data.FileType));
+                    self.attributes.push(new Attribute(node, node.data, null, "File Path", node.data.FilePath));
                     $.each(node.data.FileAttributes, function () {
-                        self.attributes.push(new PropertiesPanelAttribute(node, this, "FILEATTRIBUTEVALUE", this.FILEATTRIBUTENAME, this.FILEATTRIBUTEVALUE, this.FILEATTRIBUTETYPE, this.FILEATTRIBUTEMASTERDATA, this.FILEATTRIBUTEID));
+                        self.attributes.push(new Attribute(node, this, "FILEATTRIBUTEVALUE", this.FILEATTRIBUTENAME, this.FILEATTRIBUTEVALUE, this.FILEATTRIBUTETYPE, this.FILEATTRIBUTEMASTERDATA));
                     });
                     if (!(node.data.OutputTableName == null)) {
-                        self.attributes.push(new PropertiesPanelAttribute(node, node.data, null, "Output Table", node.data.OutputTableName));
-                        self.attributes.push(new PropertiesPanelAttribute(node, node.data, null, "Is Temporary", node.data.IsOutputTableTemporary, "boolean"));
+                        self.attributes.push(new Attribute(node, node.data, null, "Output Table", node.data.OutputTableName));
+                        self.attributes.push(new Attribute(node, node.data, null, "Is Temporary", node.data.IsOutputTableTemporary, "boolean"));
                     }
-                    self.attributes.push(new PropertiesPanelAttribute(node, node.data, null, null, "Show File's Detailed Configuration", "hyperlink", "File"));
+                    self.attributes.push(new Attribute(node, node.data, null, null, "Show Detailed Configuration", "hyperlink", "File"));
                 }
                 else if (node.category === "Table") {
-                    if (node.data.IsTemporary || ns.newTablesHandle.indexOf(node.data) > -1) {
-                        self.attributes.push(new PropertiesPanelAttribute(node, node.data, "WorkspaceTableName", "TableName", node.data.WorkspaceTableName));
-                        self.attributes.push(new PropertiesPanelAttribute(node, node.data, null, "TableType", TableTypeEnum.New));
-                        self.attributes.push(new PropertiesPanelAttribute(node, node.data, "IsTemporary", "Is Temporary", node.data.IsTemporary, "boolean"));
-                        self.attributes.push(new PropertiesPanelAttribute(node, node.data, null, null, "Show Table's Detailed Configuration", "hyperlink", "Table"));
-                    }
-                    else {
-                        self.attributes.push(new PropertiesPanelAttribute(node, node.data, null, "TableName", node.data.WorkspaceTableName));
-                        self.attributes.push(new PropertiesPanelAttribute(node, node.data, null, "TableType", node.data.TableType));
-                        //self.attributes.push(new PropertiesPanelAttribute(node, node.data, null, "Is Temporary", node.data.IsTemporary, "boolean"));
-                        self.attributes.push(new PropertiesPanelAttribute(node, node.data, null, null, "Show Table's Detailed Configuration", "hyperlink", "Table"));
-                    }
+                    self.attributes.push(new Attribute(node, node.data, null, "TableName", node.data.WorkspaceTableName));
+                    self.attributes.push(new Attribute(node, node.data, null, "TableType", node.data.TableType));
+                    self.attributes.push(new Attribute(node, node.data, null, null, "Show Tables's Detailed Configuration", "hyperlink", "Table"));
                 }
             }
             else if (canvas.selection.count === 0) {
-                self.attributes.push(new PropertiesPanelAttribute(null, jobViewModel, "JOBNM", "Job Name", jobViewModel.JOBNM() === '' ? 'Untitled Job' : jobViewModel.JOBNM()));
-                self.attributes.push(new PropertiesPanelAttribute(null, jobViewModel, "DESCNT", "Job Description", jobViewModel.DESCNT()));
-                self.attributes.push(new PropertiesPanelAttribute(null, jobViewModel, null, "DateTime Created", jobViewModel.CREATEDATE()));
-                self.attributes.push(new PropertiesPanelAttribute(null, jobViewModel, null, "DateTime Modified", jobViewModel.MODIFIEDDATE()));
-                self.attributes.push(new PropertiesPanelAttribute(null, jobViewModel, null, null, "Show Job's Detailed Configuration", "hyperlink", "Job"));
+                self.attributes.push(new Attribute(null, jobViewModel, "JOBNM", "Job Name", jobViewModel.JOBNM() === '' ? 'Untitled Job' : jobViewModel.JOBNM()));
+                self.attributes.push(new Attribute(null, jobViewModel, "DESCNT", "Job Description", jobViewModel.DESCNT()));
+                self.attributes.push(new Attribute(null, jobViewModel, null, "DateTime Created", jobViewModel.CREATEDATE()));
+                self.attributes.push(new Attribute(null, jobViewModel, null, "DateTime Modified", jobViewModel.MODIFIEDDATE()));
+                self.attributes.push(new Attribute(null, jobViewModel, null, null, "Show Job's Detailed Configuration", "hyperlink", "Job"));
             }
         };
     }
-
-    function existingTableChange(newTable) {
-
-        var tableName = "";
-        var selectedColumnTable;
-        myDiagramModalOutputTable.nodes.each(function (node) {
-            if (node.data.category == "Table" && (node.data.WorkspaceTableName != "Selected Column") && (node.data.WorkspaceTableName != tableText)) {
-                tableToRemoveByKey = node.data.key;
-                tableName = node.data.WorkspaceTableName;
-            }
-            if (node.data.category == "Table" && node.data.WorkspaceTableName == "Selected Column") {
-                selectedColumnTable = node.data;
-            }
-        });
-        if (confirm('On changing the table selection all the mapping will be lost') === false) {
-
-            ns.stepData.selectedOutputTableName(tableName);
-            return;
-        }
-        var tableText = newTable;
-        var columnsToRemoveByKey = [];
-        var linksToRemove = [];
-        var tableToRemoveByKey;
-
-        myDiagramModalOutputTable.nodes.each(function (node) {
-            if (node.data.category == "Table" && (node.data.WorkspaceTableName != "Selected Column") && (node.data.WorkspaceTableName != tableText)) {
-                tableToRemoveByKey = node.data.key;
-            }
-        });
-
-        if (tableToRemoveByKey == "undefined") return;          // if selected table is already exist
-
-        myDiagramModalOutputTable.startTransaction("change table");
-        var model = myDiagramModalOutputTable.model;
-        myDiagramModalOutputTable.nodes.each(function (node) {          //getting columns to remove
-            if (node.data.group == tableToRemoveByKey && node.data.category == "Column")
-                columnsToRemoveByKey.push(node.data.key);
-        });
-        myDiagramModalOutputTable.links.each(function (link) {           //getting links to remove
-            linksToRemove.push(link.data);
-
-        });
-
-        for (i = 0; i < linksToRemove.length; i++) {                    // removing links
-            model.removeLinkData(linksToRemove[i]);
-        }
-
-        for (i = 0; i < columnsToRemoveByKey.length; i++) {                  // removing columns
-            model.removeNodeData(model.findNodeDataForKey(columnsToRemoveByKey[i]));
-        }
-        model.removeNodeData(model.findNodeDataForKey(tableToRemoveByKey));     // removing table
-
-
-        var numberOfTables = existingTable.length;
-        for (i = 0; i < numberOfTables; i++) {
-
-            if (existingTable[i].WorkspaceTableName == tableText) {
-                existingTable[i].isGroup = true;
-                var loc = go.Point.parse(selectedColumnTable.loc);
-                loc.x += 500;
-                existingTable[i].loc = go.Point.stringify(loc);
-                model.addNodeData(existingTable[i]);  // adding table
-                for (j = 0; j < existingTable[i].Fields.length; j++) {         // adding columns
-                    var newNodeColumn = {};
-                    newNodeColumn.group = existingTable[i].key;
-                    newNodeColumn.category = "Column";
-                    newNodeColumn.columnname = existingTable[i].Fields[j].COLUMNNAME;
-                    newNodeColumn.columnid = ("T" + i + "C" + j + "O" + existingTable[i].Fields[j].COLUMNID);
-                    newNodeColumn.columntype = existingTable[i].Fields[j].COLUMNTYPE;
-                    model.addNodeData(newNodeColumn);
-                }
-            }
-        }
-
-        myDiagramModalOutputTable.model = model;
-        myDiagramModalOutputTable.commitTransaction("change table");
-
-    };
 
     $(function () {
         ko.extenders.numeric = function (target, precision) {
@@ -2821,14 +2154,9 @@ function execute() {
             return result;
         };
 
-        objPropertiesPanelVM = new PropertiesPanelViewModel();
-        ko.applyBindings(objPropertiesPanelVM, $('#propertyRead')[0]);
-        ko.applyBindings(objPropertiesPanelVM, $('#propertyWrite')[0]);
-
-
-        if (CURRENT_MODE && CURRENT_MODE === "r") {
-            isCanvasReadOnly = true;
-        }
+        objPropertiesViewModel = new PropertiesViewModel();
+        ko.applyBindings(objPropertiesViewModel, $('#propertyRead')[0]);
+        ko.applyBindings(objPropertiesViewModel, $('#propertyWrite')[0]);
 
         init();
         if (CURRENT_JOB_ID) {
@@ -2839,18 +2167,11 @@ function execute() {
             addNewJob();
         }
 
-
         modelData = new newFileModel();
         ko.applyBindings(modelData, $('#file-modal')[0]);
 
         tableData = new tableModel();
         ko.applyBindings(tableData, $('#table-modal')[0]);
-        objshowDataViewModel = new showDataViewModel();
-        ko.applyBindings(objshowDataViewModel, $('#dataGrid')[0]);
-        disableButtons();
-
-        ns.stepData = new stepModel();
-        ko.applyBindings(ns.stepData, $('#stepModal')[0]);
 
         $(window).bind('beforeunload', function () {
             if (canvas.isModified) {
@@ -2962,8 +2283,6 @@ function execute() {
         self.NewDefFlag = NEWDEFFLAG;
         self.MultiLangs = [];
         self.MultiLangs.push(MultiLangs);
-        self.NewTables = [];
-        self.GenerateYAMLFlag = false;
     }
 
     var jobViewModel;
@@ -3007,10 +2326,13 @@ function execute() {
 
             revertJobName = jobViewModel.JOBNM();
 
-            CielKoBind.BindSimple(jobViewModel, "job-addedit-modal");
-            CielKoBind.BindSimple(jobViewModel, "canvasHeader");
 
-            objPropertiesPanelVM.updatePropertiesPanel();
+
+
+            CielKoBind.BindSimple(jobViewModel, "job-addedit-modal");
+            CielKoBind.BindSimple(jobViewModel, "job-settings-container");
+
+            objPropertiesViewModel.updateAttributes();
 
             canvasModifiedHandler(canvas);
         });
@@ -3030,7 +2352,7 @@ function execute() {
             data.commit();
             $('#job-addedit-modal').modal('hide');
             canvas.clearSelection();
-            objPropertiesPanelVM.updatePropertiesPanel();
+            objPropertiesViewModel.updateAttributes();
 
             canvas.model.startTransaction("set job attributes");
             canvas.model.setDataProperty(canvas.model.modelData, "jobAttributes", ko.toJS(data));
@@ -3046,7 +2368,7 @@ function execute() {
         }
         else {
             data.reset();
-            objPropertiesPanelVM.updatePropertiesPanel();
+            objPropertiesViewModel.updateAttributes();
         }
     }
 
@@ -3062,187 +2384,6 @@ function execute() {
         }
     }
 
-    ns.tempTablesHandle = {
-        getTempTablesList: function () {
-            if (canvas.model.modelData.tempTableList == null) {
-                canvas.model.modelData.tempTableList = [];
-            }
-           return canvas.model.modelData.tempTableList;
-        },
-        addTableToList: function (tableData) {
-            if (canvas.model.modelData.tempTableList == null) {
-                canvas.model.modelData.tempTableList = [];
-            }
-            canvas.model.modelData.tempTableList.push(tableData);
-        },
-        removeTableFromList: function (tableData) {
-            var list = canvas.model.modelData.tempTableList;
-            for (var i = 0; i < list.length; i++) {
-                if (list[i].TempID == tableData.TempID) {
-                    list.splice(i, 1);
-                    return;
-                }
-            }
-        },
-        updateTableInList: function (tableData) {
-            var list = canvas.model.modelData.tempTableList;
-            for (var i = 0; i < list.length; i++) {
-                if (list[i].TempID == tableData.TempID) {
-                    list[i].WorkspaceTableName = tableData.WorkspaceTableName;
-                    list[i].Fields = tableData.Fields;
-                    return;
-                }
-            }
-        },
-        indexOf: function (tableData) {
-            var list = canvas.model.modelData.tempTableList;
-            for (var i = 0; i < list.length; i++) {
-                if (list[i].TempID == tableData.TempID) {
-                    return i;
-                }
-            }
-            return -1;
-        },
-    }
-
-    ns.newTablesHandle = {
-        newTablesList : [],
-        getNewTablesList: function () {
-            return this.newTablesList;
-        },
-        addTableToList: function (tableData) {
-            this.newTablesList.push(tableData);
-        },
-        removeTableFromList: function (tableData) {
-            var list = this.newTablesList;
-            for (var i = 0; i < list.length; i++) {
-                if (list[i].TempID == tableData.TempID) {
-                    list.splice(i, 1);
-                    return;
-                }
-            }
-        },
-        updateTableInList: function (tableData) {
-            var list = this.newTablesList;
-            for (var i = 0; i < list.length; i++) {
-                if (list[i].TempID == tableData.TempID) {
-                    list[i].WorkspaceTableName = tableData.WorkspaceTableName;
-                    list[i].Fields = tableData.Fields;
-                    return;
-                }
-            }
-        },
-        indexOf: function (tableData) {
-            var list = this.newTablesList;
-            for (var i = 0; i < list.length; i++) {
-                if (list[i].TempID == tableData.TempID) {
-                    return i;
-                }
-            }
-            return -1;
-        },
-        clearNewTablesList: function () {
-            this.newTablesList = [];
-        },
-        //if (newTablesList.length === 0) {
-        //    ns.saveJob(data);
-        //    return;
-        //}
-        validate: function (jobVM) {
-            var tablesData = [];
-            $(this.newTablesList).each(function (index, value) {
-                var tableData = value;
-                    //Validate new permanent tables
-                    tableData.ErrorList = [];
-                    if (tableData.Fields.length === 0) {
-                        tableData.ErrorList.push("Table cannot be created without columns");
-                    }
-                    tablesData.push(tableData);
-            });
-
-            $(canvas.model.modelData.tempTableList).each(function (index, tableData) {
-                //Validate all temporary tables
-                tablesData.push(tableData);
-
-                tableData.ErrorList = [];
-                if (tableData.Fields.length === 0) {
-                    tableData.ErrorList.push("Table cannot be created without columns");
-                }
-                tablesData.push(tableData);
-            });
-
-            //canvas.nodes.each(function (node) {
-            //    if (node.category === "Table" && node.data.IsTemporary && newTablesList.indexOf(node) === -1) {
-            //        //Add existing temporary tables to newtablelist
-            //        newTablesList.push(node);
-
-            //        var table = node.data;
-            //        table.ErrorList = [];
-            //        if (table.Fields.length === 0) {
-            //            table.ErrorList.push("Table cannot be created without columns");
-            //        }
-            //        tablesData.push(table);
-            //    }
-            //});
-
-            jobVM.NewTables = tablesData;
-        },
-
-        SuccessHandler: function (savedTables) {
-            //clear error messages and new Tables list
-            $(savedTables).each(function (index, tableData) {
-                canvas.nodes.each(function (node) {
-                    if (node.category === "Table" && node.data.TempID === tableData.TempID) {
-                        canvas.startTransaction("updateNodes");
-                        node.findObject("shape").stroke = "#6bb300";
-                        node.findObject("shape").strokeWidth = 3;
-                        canvas.model.setDataProperty(node.data, "WorkspaceTableID", tableData.WorkspaceTableID);
-                        canvas.model.setDataProperty(node.data, "Fields", tableData.Fields);
-                        node.updateTargetBindings();
-                        canvas.commitTransaction("updateNodes");
-                    }
-                });
-
-            });
-
-            this.newTablesList = [];
-            //ns.saveJob(data);
-        },
-
-        FailedHandler: function (newTables, invalidTables) {
-            //TODO: optimize (change loops inside out and use break)
-            $(newTables).each(function (index, tableData) {
-                canvas.nodes.each(function (node) {
-                    if (node.category === "Table" && node.data.TempID === tableData.TempID) {
-                        canvas.startTransaction("updateNodes");
-                        node.findObject("shape").stroke = "#6bb300";
-                        node.findObject("shape").strokeWidth = 3;
-                        canvas.model.setDataProperty(node.data, "WorkspaceTableID", tableData.WorkspaceTableID);
-                        canvas.model.setDataProperty(node.data, "Fields", tableData.Fields);
-                        node.updateTargetBindings();
-                        canvas.commitTransaction("updateNodes");
-                    }
-                });
-            });
-
-            $(invalidTables).each(function (index, tableData) {
-                canvas.nodes.each(function (node) {
-                    if (node.category === "Table" && node.data.TempID === tableData.TempID) {
-                        canvas.startTransaction("updateNodes");
-                        node.findObject("shape").stroke = "red";
-                        node.findObject("shape").strokeWidth = 5;
-                        canvas.model.setDataProperty(node.data, "ErrorList", tableData.ErrorList);
-                        node.updateTargetBindings();
-                        canvas.commitTransaction("updateNodes");
-                    }
-                });
-            });
-        }
-
-        //Ciel.Process.Api.validateAndSaveTables(tablesData, successHandler, failedHandler);
-
-    }
-
     ns.saveJob = function (data) {
         var vmSave = new JobViewModelSimple(data.JOBID(), data.JOBNM(), data.DESCNT(), data.LANGCD(), data.LANGNM(), canvas.model.toJson(), data.CREATEDATE(), data.MODIFIEDDATE(), data.NewDefFlag(),
             new JobViewModelSimple(data.MultiLangs[0].JOBID(), data.MultiLangs[0].JOBNM(), data.MultiLangs[0].DESCNT(), data.MultiLangs[0].LANGCD(), data.MultiLangs[0].LANGNM(), data.MultiLangs[0].JOBJSON(),
@@ -3252,40 +2393,25 @@ function execute() {
         vmSave.NewDefFlag = (vmSave.JOBID === Ciel.Process.ProcessDesign.CreateJob.newJobId);
 
         if (validateJob(vmSave, true)) {
-            //validate tables
-            ns.newTablesHandle.validate(vmSave);
 
             $("#btnSave").removeClass('button').addClass('buttonDisabled').prop("disabled", true);
 
-            Ciel.Process.Api.PostJob(vmSave, function (vmSave, newModel) {
-                ns.newTablesHandle.SuccessHandler(newModel.NewTables);
-
+            Ciel.Process.Api.PostJob(vmSave, function (newModel) {
                 revertJobName = jobViewModel.JOBNM();
 
                 $('#job-addedit-modal-errorresult').empty(); //clear validation message
                 Ciel.Process.ProcessDesign.CreateJob.jobId = newModel.JOBID;
-
-                vmSave.GenerateYAMLFlag = true;
-                vmSave.NewTables = [];
-                vmSave.JOBID = Ciel.Process.ProcessDesign.CreateJob.jobId;
-                vmSave.NewDefFlag = false;
-                vmSave.JOBJSON = canvas.model.toJson();
-
-                //Again save the job with updated updated json after IDs of new components are included in it
-                Ciel.Process.Api.PostJob(vmSave, function (vmSave, newModel) {
-                    jobViewModel.JOBID(newModel.JOBID);
-                    jobViewModel.CREATEDATE(newModel.CREATEDATE);
-                    jobViewModel.MODIFIEDDATE(newModel.MODIFIEDDATE);
-                    jobViewModel.isCanvasDirty(false);
-                    data.isCanvasDirty(false);
-                    objPropertiesPanelVM.updatePropertiesPanel();
-                    quickSave = false;
-                    canvas.isModified = false;
-                    if (clearCanvas) {
-                        ns.resetCanvas();
-                    }
-                }, null);
-
+                jobViewModel.JOBID(newModel.JOBID);
+                jobViewModel.CREATEDATE(newModel.CREATEDATE);
+                jobViewModel.MODIFIEDDATE(newModel.MODIFIEDDATE);
+                jobViewModel.isCanvasDirty(false);
+                data.isCanvasDirty(false);
+                objPropertiesViewModel.updateAttributes();
+                quickSave = false;
+                canvas.isModified = false;
+                if (clearCanvas) {
+                    ns.resetCanvas();
+                }
             }, jobSaveWarningHandler);
         }
         else {
@@ -3311,41 +2437,9 @@ function execute() {
         //}
     }
 
-    showDataViewModel = function () {
-        var self = this;
-        self.myData = ko.observableArray([]);
-        var recordArray = [];
-        self.gridOptions = {
-            dataSource: self.myData
-        };
-        self.UpdateData = function (datasource, isCleanRecords) {
-            if (isCleanRecords) {
-                recordArray = [];
-            }
-            for (i = 0; i < datasource.length; i++) {
-                recordArray.push(datasource[i]);
-            }
-
-            self.myData(recordArray);
-        }
-    }
-
-
-    ns.ShowTableData = function (tableName, pageNumber, isCleanRecords) {
-        $('.panel-body').find('.mapper-loader').show();
-        Ciel.Process.Api.GetJobTableData(tableName, pageNumber, function (data) {
-            objshowDataViewModel.UpdateData(JSON.parse(data).Table, isCleanRecords)
-            $('.panel-body').find('.mapper-loader').hide();
-        });
-    }
-
-    var jobSaveWarningHandler = function (originalVM, response) {
-        ns.newTablesHandle.FailedHandler(originalVM.NewTables, response.invalidModel.NewTables);
+    var jobSaveWarningHandler = function (response) {
         canvasModifiedHandler(canvas);
-
-        if (response.error[0].Messages.length > 0) {
-            validateJob.inputErrorFunc(response.error);
-        }
+        validateJob.inputErrorFunc(response);
     }
 
     var validateJob = function (data, isHideTooltip, propertyToValidate) {
@@ -3355,9 +2449,11 @@ function execute() {
         function inputErrorFunc(err) {
 
             jobViewModel.JOBNM(revertJobName);
-            objPropertiesPanelVM.updatePropertiesPanel();
+            objPropertiesViewModel.updateAttributes();
             $('#save_job_config').text("Save");
-            setTimeout(function () { $('#job-addedit-modal').modal('show'); }, 300);
+            if (!$('#job-addedit-modal').is(':visible')) {
+                $('#job-addedit-modal').modal('show');
+            }
 
             $('#job-addedit-modal-errorresult').empty();
             for (var i in err) {
@@ -3465,15 +2561,12 @@ function execute() {
     }
 
     function stepClicked(e, obj) {
-        if (isCanvasReadOnly) {
-            return;
-        }
         currentStep = obj.part;
         if (typeof currentStep.data.inputTablesByOrder === "undefined") {
             currentStep.data.inputTablesByOrder = [];
             currentStep.data.relationExpression = {};
         }
-
+        
 
         function addTemplateForDiagram(MyDiagram, input) {
             MyDiagram.groupTemplateMap.add("Table", Ciel.Process.ProcessDesign.CreateJob.groupTemplateForTable());  // end Group and call to add to template Map
@@ -3490,8 +2583,14 @@ function execute() {
 
         // temp location start # for loading/getting existingTable
         numberOfTables = existingTable.length;
-
-        ns.stepData.updateModel(obj, tablesPalette);
+        var select = document.getElementById("existingTable");
+        select.options.length = 1;
+        for (i = 0; i < numberOfTables; i++) {
+            var option = document.createElement("option");
+            option.text = existingTable[i].WorkspaceTableName;
+            option.value = existingTable[i].WorkspaceTableName;
+            select.appendChild(option);
+        }
 
         if (typeof currentStep.data.modalInputTablesMapping !== "undefined") {
             addTemplateForDiagram(myDiagramModalInputTable, true);
@@ -3508,9 +2607,8 @@ function execute() {
                     tableName = node.data.WorkspaceTableName;
                 }
             });
-            
-            //$("#existingTable").val(tableName);
-            ns.stepData.selectedOutputTableName(tableName);            
+            $("#existingTable").val(tableName);
+
         }
         else {
 
@@ -3567,14 +2665,12 @@ function execute() {
                 WorkspaceTableName: "Selected Column",
                 isGroup: true
             });
-
             TableInJson = JSON.parse(JSON.stringify(tablesFromCurrentStep));
             if (TableInJson.length != 0) {
 
                 nodeDataArray.push(Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(TableInJson[0]));
                 Array.prototype.push.apply(nodeDataArray, Ciel.Process.ProcessDesign.CreateJob.getColumnsFromTable(TableInJson[0], 0));
-                //select.value = TableInJson[0].WorkspaceTableName;
-                ns.stepData.selectedOutputTableName(TableInJson[0].WorkspaceTableName);
+                select.value = TableInJson[0].WorkspaceTableName;
             }
 
             linkDataArray = [];
@@ -3588,10 +2684,11 @@ function execute() {
             }
 
         }
+
+
         // temp location end
 
         numberOfTables = existingTable.length;
-        ns.stepData.updateModelForPurge(obj, tablesPalette);
         $("#stepModal").modal('show');
     }
 
@@ -3607,7 +2704,7 @@ function execute() {
             if (executeDragOver) {
                 executeDragOver = false;
                 var nodeCount = 0;
-                var it = canvas.toolManager.draggingTool.draggingParts.iterator;
+                var it = e.diagram.toolManager.draggingTool.draggingParts.iterator;
                 while (it.next()) {
                     if (nodeCount > 0) {
                         var node = it.value;
@@ -3621,8 +2718,8 @@ function execute() {
             e.subject.each(function (node) {
                 node.opacity = 1;
             });
-            canvas.commandHandler.expandSubGraph();
-            canvas.zoomToFit();
+            e.diagram.commandHandler.expandSubGraph();
+            e.diagram.zoomToFit();
         },
         allowDrop: true,  // must be true to accept drops from the Palette
         // what to do when a drag-drop occurs in the Diagram's background
@@ -3651,21 +2748,10 @@ function execute() {
     });
     }
 
-    function columnCompareFunction(a, b) {
-        var at = a.data.columnname.toLowerCase();
-        var bt = b.data.columnname.toLowerCase();
-        if (at === 'all') {
-            return -1;
-        }
-        if (at < bt) return -1;
-        if (at > bt) return 1;
-        return 0;
-    }
-
     ns.groupTemplateForTable = function () {
         return goJs(go.Group, "Auto",
             {
-                dragComputation: avoidNodeOverlap,
+                // dragComputation: avoidNodeOverlap,
                 background: "transparent",
                 ungroupable: true,
                 // highlight when dragging into the Group
@@ -3675,15 +2761,14 @@ function execute() {
                 // when the selection is dropped into a Group, add the selected Parts into that Group;
                 // if it fails, cancel the tool, rolling back any changes
                 mouseDrop: Ciel.Process.ProcessDesign.CreateJob.finishDropForTable,
-                //  allowDrop: false,
-                handlesDragDropForMembers: true,  // don't need to define handlers on member Nodes and Links
+                 
+               // handlesDragDropForMembers: true,  // don't need to define handlers on member Nodes and Links
                 // Groups containing Nodes lay out their members vertically
                 layout:
                   goJs(go.GridLayout,
                     {
                         wrappingColumn: 1, alignment: go.GridLayout.Position,
-                        cellSize: new go.Size(0, 0), spacing: new go.Size(0, 0),
-                        comparer: columnCompareFunction
+                        cellSize: new go.Size(0, 0), spacing: new go.Size(0, 0)
                     })
             },
             new go.Binding("background", "isHighlighted", function (h) { return h ? "rgba(255,0,0,0.2)" : "transparent"; }).ofObject(),
@@ -3841,13 +2926,13 @@ function execute() {
             corner: 5, toShortLength: 4, fromShortLength: 10,
             relinkableFrom: false,
             relinkableTo: false,
-            // reshapable: true,
+           // reshapable: true,
             resegmentable: true,
             selectionAdorned: true,
             // mouse-overs subtly highlight links:
             mouseEnter: function (e, link) { link.findObject("HIGHLIGHT").stroke = "rgba(30,144,255,0.2)"; },
             mouseLeave: function (e, link) { link.findObject("HIGHLIGHT").stroke = "transparent"; },
-            contextMenu: goJs(go.Adornment)
+            contextMenu: goJs(go.Adornment) 
         },
         new go.Binding("points").makeTwoWay(),
         goJs(go.Shape,  // the highlight shape, normally transparent
@@ -3881,79 +2966,16 @@ function execute() {
                             ),  // end of Adornment
 
                       },
-                       new go.Binding("angle", "angle").makeTwoWay(),
+                       new go.Binding("angle","angle").makeTwoWay(),
                        new go.Binding("source", "relationType", Ciel.Process.ProcessDesign.CreateJob.getSourceForRelation).makeTwoWay())
         )
       );
     }
 
-
-
-    // get
-    ns.createContextMenuButton = function (relationType) {
-        return goJs("ContextMenuButton",
-                      Ciel.Process.ProcessDesign.CreateJob.getImageForRelationType(relationType),
-                     // goJs(go.TextBlock, "Select matching data from both tables."),
-                      {
-                          click: function (e, obj) {
-                              Ciel.Process.ProcessDesign.CreateJob.updateRelation(e, obj, relationType);
-                          }
-                      });
-    }
-    //for picture in context menu
-    ns.getImageForRelationType = function (relationType) {
-        return goJs(go.Picture,
-                       {
-                           name: 'Picture',
-                           desiredSize: new go.Size(20, 20),
-                           source: CONFIG_APP_BASEURL + "/Areas/Process/Images/" + relationType + ".png",
-                           margin: 3,
-                           toolTip:  // define a tooltip for each node that displays the color as text
-                             goJs(go.Adornment, "Auto",
-                               goJs(go.Shape, { fill: "#FFFFCC" }),
-                                goJs(go.TextBlock, new go.Binding("text", "", function (obj) {
-                                    var toolTipText;
-                                    switch (relationType) {
-                                        case "RightOuter":
-                                            toolTipText = "Select all data from: " + myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.to).data.group).data.WorkspaceTableName + ' exclude matching data from ' +
-                                       myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.from).data.group).data.WorkspaceTableName;
-                                            break;
-                                        case "FullOuter":
-                                            toolTipText = "Select all data from both table exlude matching data from both.";
-                                            break;
-                                        case "LeftOuter":
-                                            toolTipText = "Select all data from: " + myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.from).data.group).data.WorkspaceTableName + ' exclude matching data from ' +
-                                                myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.to).data.group).data.WorkspaceTableName;
-                                            break;
-                                        case "RightJoin":
-                                            toolTipText = "Select all data from: " + myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.to).data.group).data.WorkspaceTableName;
-                                            break;
-                                        case "LeftJoin":
-                                            toolTipText = "Select all data from: " + myDiagramModalInputTable.findNodeForKey(myDiagramModalInputTable.findNodeForKey(obj.from).data.group).data.WorkspaceTableName;
-                                            break;
-                                        case "FullJoin":
-                                            toolTipText = "Select all data from both tables";
-                                            break;
-                                        case "InnerJoin":
-                                            toolTipText = "Select matching data from both tables.";
-                                            break;
-                                            // add the default keyword here
-                                    }
-                                    return toolTipText;
-                                }), { margin: 4 })
-
-                             ),  // end of Adornment
-
-                       }//,
-                        //new go.Binding("source", "relationType", Ciel.Process.ProcessDesign.CreateJob.getSourceForRelation).makeTwoWay()
-                        )
-    }
-
-    // for output model only
     ns.linkTemplateForMapping = function () {
         return goJs(go.Link,  // the whole link panel
         {
-            //routing: go.Link.AvoidsNodes,
+            routing: go.Link.AvoidsNodes,
             curve: go.Link.JumpOver,
             corner: 5, toShortLength: 4,
             relinkableFrom: true,
@@ -4012,7 +3034,8 @@ function execute() {
                      alignment: spot, alignmentFocus: spot,
                      alignmentFocus: spot.opposite(),// align the port on the main Shape
                      portId: name,  // declare this object to be a "port"
-                     fromSpot: spot, toSpot: spot,  // declare where links may connect at this port
+                     fromSpot: go.Spot.LeftRightSides,  // links only go from the right side to the left side
+                     toSpot: go.Spot.LeftRightSides,
                      fromLinkable: output, toLinkable: input,  // declare whether the user may draw links to/from here
                      cursor: "pointer",// show a different cursor to indicate potential link point
                      fromMaxLinks: 1,
@@ -4082,7 +3105,6 @@ function execute() {
                         if (node.data.columnid == n.data.columnid && outputModel.findNodeDataForKey(node.data.group).WorkspaceTableName == "Selected Column") { // depens on columnid if everycolumn in diagram has unique id  then modify here
                             add = false;
                             removeColumn = node.data;
-                            newNodeColumn.key = node.data.key;
                         }
                     });
                     if (add) {
@@ -4176,9 +3198,8 @@ function execute() {
         }
         grp.isHighlighted = false;
     }
-
     ns.getStringFromBool = function (bool) {
-        if (typeof bool !== "undefined" && bool === true) {
+        if (typeof bool !== "undefined" && bool===true) {
             return "1";
         } else {
             return "0";
@@ -4236,13 +3257,13 @@ function execute() {
         }
 
         $("#contextMenuImg").attr("src", ("Areas/Process/Images/" + newSource + ".png"));
-
+        
         var fromNodeGroup = e.diagram.findNodeForKey(selectedLinkData.from).data.group;
         var toNodeGroup = e.diagram.findNodeForKey(selectedLinkData.to).data.group;
-        if (typeof currentStep.data.relationExpression[contextmenu.fromNode.containingGroup.data.WorkspaceTableName + contextmenu.toNode.containingGroup.data.WorkspaceTableName] !== "undefined") {
+        if (typeof currentStep.data.relationExpression[contextmenu.fromNode.containingGroup.data.WorkspaceTableName + contextmenu.toNode.containingGroup.data.WorkspaceTableName]!=="undefined") {
             currentStep.data.relationExpression[contextmenu.fromNode.containingGroup.data.WorkspaceTableName + contextmenu.toNode.containingGroup.data.WorkspaceTableName] = [];
         }
-
+        
         e.diagram.links.each(function (link) {
 
             if (link.data !== null &&
@@ -4259,14 +3280,13 @@ function execute() {
                 model.setDataProperty(link.data, "checked2", selectedLinkData.checked2);
                 model.setDataProperty(link.data, "checked3", selectedLinkData.checked3);
                 model.setDataProperty(link.data, "toolTipText",
-                  (newSource + ": " + fromNodeTable.WorkspaceTableName + "." + fromNode.columnname + ((typeof link.data.equalityCondition === "undefined") ? "=" : link.data.equalityCondition) + toNodeTable.WorkspaceTableName + "." + toNode.columnname));
+                  (newSource + ": " + fromNodeTable.WorkspaceTableName + "." + fromNode.columnname + ( (typeof link.data.equalityCondition === "undefined") ? "=" : link.data.equalityCondition ) + toNodeTable.WorkspaceTableName + "." + toNode.columnname));
                 e.diagram.commitTransaction("changed relation");
                 currentStep.data.relationExpression[link.fromNode.containingGroup.data.WorkspaceTableName + link.toNode.containingGroup.data.WorkspaceTableName].push(link);
             }
         });
 
     }
-
 
     ns.resetCanvas = function () {
         canvas.isModified = false;
@@ -4279,17 +3299,6 @@ function execute() {
         $('#new-job-confirm-modal').modal('hide');
         ns.saveJob(jobViewModel);
     }
-
-    ns.isHasNode = function (array, node) {
-
-        for (i = 0; i < array.length; i++) {
-            if (array[i].data.key == node.data.key) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
 
     var showJobModal = function () {
         $('#save_job_config').text(quickSave ? 'Save' : 'Ok');
@@ -4374,14 +3383,9 @@ function execute() {
         // nested function used by Layer.findObjectsIn, below
         // only consider Parts, and ignore the given Node and any Links
         function navig(obj) {
-            // debugger;
             var part;
-            if (obj.part.data.category !== undefined && obj.part.data.category.toLowerCase() === 'column') {
-                part = obj.part.containingGroup;
-            }
-            else {
-                part = obj.part;
-            }
+            if (obj.part.data.category.toLowerCase() === "column") part = obj.part;
+            else part = obj.part.containingGroup;
             if (part === node) return null;
             if (part instanceof go.Link) return null;
             return part;
@@ -4406,6 +3410,9 @@ function execute() {
         var x = gridpt.x - (loc.x - bnds.x);
         var y = gridpt.y - (loc.y - bnds.y);
         var r = new go.Rect(x, y, bnds.width, bnds.height);
+        console.log(bnds);
+        console.log(gridpt);
+        console.log(node);
         // maybe inflate R if you want some space between the node and any other nodes
         if (isUnoccupied(r, node)) {
             return pt;
@@ -4413,48 +3420,23 @@ function execute() {
         return loc;  // give up -- don't allow the node to be moved to the new location
     }
 
-    function disableButtons() {
-        if (isCanvasReadOnly) {
-
-            $('.topButtonsBar').find('.btn').removeClass('button').addClass('buttonDisabled').prop("disabled", true);
+    ns.isHasNode = function (array, node) {
+        
+        for (i = 0; i < array.length; i++) {
+            if (array[i].data.key == node.data.key) {
+                return i;
+            }
         }
-        else {
-            $('.topButtonsBar').find('.btn').removeClass('buttonDisabled').addClass('button').prop("disabled", false);
-            canvasModifiedHandler(canvas);
-        }
+        return -1;
     }
+    ns.isHasLink = function (array, link) {
 
-    function validateDateFormat(dateVal) {
-
-        var dateVal = dateVal;
-
-        if (dateVal == null)
-            return false;
-
-        var validatePattern = /^(\d{4})(\/|-)(\d{1,2})(\/|-)(\d{1,2})$/;
-
-        dateValues = dateVal.match(validatePattern);
-
-        if (dateValues == null)
-            return false;
-
-        var dtYear = dateValues[1];
-        dtMonth = dateValues[3];
-        dtDay = dateValues[5];
-
-        if (dtMonth < 1 || dtMonth > 12)
-            return false;
-        else if (dtDay < 1 || dtDay > 31)
-            return false;
-        else if ((dtMonth == 4 || dtMonth == 6 || dtMonth == 9 || dtMonth == 11) && dtDay == 31)
-            return false;
-        else if (dtMonth == 2) {
-            var isleap = (dtYear % 4 == 0 && (dtYear % 100 != 0 || dtYear % 400 == 0));
-            if (dtDay > 29 || (dtDay == 29 && !isleap))
-                return false;
+        for (i = 0; i < array.length; i++) {
+            if (array[i].data.from == node.data.from && array[i].data.to == node.data.to) {
+                return i;
+            }
         }
-
-        return true;
+        return -1;
     }
 
 }(Ciel.Process.ProcessDesign.CreateJob));
