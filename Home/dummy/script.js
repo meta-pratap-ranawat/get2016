@@ -1246,12 +1246,12 @@ $(document).ready(function () {
                 if (typeof obj.data.equalityCondition === "undefined") {
                     eid.selectedIndex = 0;
                     diagram.startTransaction("setEqulityCondition");
-                    diagram.model.setDataProperty(obj.data, "equalityCondition", $("#equalityCondition option:selected").text());
+                    diagram.model.setDataProperty(obj.data, "equalityCondition", $("#equalityCondition option:selected").text().trim());
                     diagram.commitTransaction("setEqulityCondition");
                    
                 } else {
                     for (var i = 0; i < eid.options.length; ++i) {
-                        if (eid.options[i].text === obj.data.equalityCondition)
+                        if (eid.options[i].text.trim() === obj.data.equalityCondition.trim())
                         {
                             eid.selectedIndex = i; 
                         }
