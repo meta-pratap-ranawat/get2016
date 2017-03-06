@@ -147,6 +147,13 @@ $(document).ready(function () {
             diagram.model.setDataProperty(linkData, "color", "gray");
             diagram.commitTransaction("set link");
         }
+        if (typeof link.data.relationType === "undefined") {
+            diagram.startTransaction("set link");
+            diagram.model.setDataProperty(link.data, "checked1", false);
+            diagram.model.setDataProperty(link.data, "checked2", true);
+            diagram.model.setDataProperty(link.data, "checked3", false);
+            diagram.commitTransaction("set link");
+        }
 
         myDiagramModalInputTable.links.each(function (storedLink) {
 
@@ -518,6 +525,7 @@ $(document).ready(function () {
             var expressions = "";
             var hasLink = false;
             var relationType;
+            var joinIs;
 
             while (--j > -1) {
                 var links = currentStep.data.relationExpression[currentStep.data.inputTablesByOrder[j].WorkspaceTableName + currentStep.data.inputTablesByOrder[i].WorkspaceTableName];
@@ -533,6 +541,15 @@ $(document).ready(function () {
                         var partIndex = relationType.indexOf(":");
                         var expression = relationType.substr((partIndex + 2), relationType.length);
 
+                        if (currentStep.data.inputTablesByOrder[j].key === myDiagramModalInputTable.model.findNodeDataForKey(links[k].from).group) {
+                            joinIs = Ciel.Process.ProcessDesign.CreateJob.getRelationType(links[k]);
+                        } else {
+                            joinIs = Ciel.Process.ProcessDesign.CreateJob.getRelationType({
+                                checked1: links[k].checked3,
+                                checked2: links[k].checked2,
+                                checked3: links[k].checked1
+                            });
+                        }
                         if (k == 0) {
                             expressions += expression;
                         }
@@ -540,18 +557,21 @@ $(document).ready(function () {
                             expressions += " AND " + expression;
                         }
 
-                        if (relationType.substr(0, partIndex).toLowerCase() == "leftouter" && currentStep.data.whereClause.indexOf(currentStep.data.inputTablesByOrder[i].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].to).data.columnname) == -1) {
+                        if (joinIs.toLowerCase() == "leftouter" && currentStep.data.whereClause.indexOf(currentStep.data.inputTablesByOrder[i].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].to).data.columnname) == -1) {
                             currentStep.data.whereClause.push(currentStep.data.inputTablesByOrder[i].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].to).data.columnname);
+                            joinIs = "LeftJoin";
                         }
                         else {
-                            if (relationType.substr(0, partIndex).toLowerCase() == "rightouter" && currentStep.data.whereClause.indexOf(currentStep.data.inputTablesByOrder[i - 1].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].from).data.columnname) == -1) {
+                            if (joinIs.toLowerCase() == "rightouter" && currentStep.data.whereClause.indexOf(currentStep.data.inputTablesByOrder[i - 1].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].from).data.columnname) == -1) {
                                 currentStep.data.whereClause.push(currentStep.data.inputTablesByOrder[i - 1].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].from).data.columnname);
+                                joinIs = "RightJoin";
                             }
                             else {
-                                if (relationType.substr(0, partIndex).toLowerCase() == "fullouter" && currentStep.data.whereClause.indexOf(currentStep.data.inputTablesByOrder[i].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].to).data.columnname) == -1
+                                if (joinIs.toLowerCase() == "fullouter" && currentStep.data.whereClause.indexOf(currentStep.data.inputTablesByOrder[i].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].to).data.columnname) == -1
                                     && currentStep.data.whereClause.indexOf(currentStep.data.inputTablesByOrder[i - 1].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].from).data.columnname) == -1) {
                                     currentStep.data.whereClause.push(currentStep.data.inputTablesByOrder[i].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].to).data.columnname);
                                     currentStep.data.whereClause.push(currentStep.data.inputTablesByOrder[i - 1].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].from).data.columnname);
+                                    joinIs = "FullJoin";
                                 }
                             }
                         }
@@ -561,8 +581,7 @@ $(document).ready(function () {
             }
 
             if (hasLink) {
-                var partIndex = relationType.indexOf(":");
-                currentStep.data.fromQuery += "\n " + relationType.substr(0, partIndex) + " " + currentStep.data.inputTablesByOrder[i].WorkspaceTableName + " On ";
+                currentStep.data.fromQuery += "\n " + joinIs + " " + currentStep.data.inputTablesByOrder[i].WorkspaceTableName + " On ";
             }
             else {
                 currentStep.data.fromQuery += "\n CrossJoin " + currentStep.data.inputTablesByOrder[i].WorkspaceTableName + " ";
@@ -4819,7 +4838,7 @@ function execute() {
             + Ciel.Process.ProcessDesign.CreateJob.getStringFromBool(linkData.checked3);
 
         var relationType;
-        if (checkString === "000") {
+        if (checkString === "000" || checkString === "010") {
             return "InnerJoin";
         }
         switch (checkString) {
@@ -4840,9 +4859,6 @@ function execute() {
                 break;
             case "111":
                 relationType = "FullJoin";
-                break;
-            case "010":
-                relationType = "InnerJoin";
                 break;
                 // add the default keyword here
         }
