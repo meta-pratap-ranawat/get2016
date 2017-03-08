@@ -147,13 +147,6 @@ $(document).ready(function () {
             diagram.model.setDataProperty(linkData, "color", "gray");
             diagram.commitTransaction("set link");
         }
-        if (typeof link.data.relationType === "undefined") {
-            diagram.startTransaction("set link");
-            diagram.model.setDataProperty(link.data, "checked1", false);
-            diagram.model.setDataProperty(link.data, "checked2", true);
-            diagram.model.setDataProperty(link.data, "checked3", false);
-            diagram.commitTransaction("set link");
-        }
 
         myDiagramModalInputTable.links.each(function (storedLink) {
 
@@ -276,12 +269,18 @@ $(document).ready(function () {
         $(".pageColumns").removeClass("showRight").addClass("hideRight"),
         Ciel.Process.ProcessDesign.CreateJob.updateDiagram();
     });
+
     $("#canvasRightPanel .innerContent").click(function () {
         $("#canvasRightPanel .readOnlyMode").hide(),
         $("#canvasRightPanel .editMode").show(),
         $(".pageColumns").addClass("editingRight"),
         Ciel.Process.ProcessDesign.CreateJob.updateDiagram();
     });
+
+    var testfunc = function () {
+        return;
+    }
+
     $("#canvasBottomPanel .panel-heading .minimize").click(function () { $(".pageColumns").addClass("minimizeBottom") })
     $("#canvasBottomPanel .panel-heading .maximize").click(function () { $(".pageColumns").removeClass("minimizeBottom").addClass("showBottom") })
     $("#canvasBottomPanel .panel-heading .closeMe").click(function () { $(".pageColumns").removeClass("showBottom").addClass("hideBottom") })
@@ -343,82 +342,6 @@ $(document).ready(function () {
         return result;
     };
 
-    //$("#existingTable").on('change', function () {
-    //    var tableName = "";
-    //    var selectedColumnTable;
-    //    myDiagramModalOutputTable.nodes.each(function (node) {
-    //        if (node.data.category == "Table" && (node.data.WorkspaceTableName != "Selected Column") && (node.data.WorkspaceTableName != tableText)) {
-    //            tableToRemoveByKey = node.data.key;
-    //            tableName = node.data.WorkspaceTableName;
-    //        }
-    //        if (node.data.category == "Table" && node.data.WorkspaceTableName == "Selected Column") {
-    //            selectedColumnTable = node.data;
-    //        }
-    //    });
-    //    if (confirm('On changing the table selection all the mapping will be lost') === false) {
-    //        $("#existingTable").val(tableName);
-    //        return;
-    //    }
-    //    var tableText = this.value;
-    //    var columnsToRemoveByKey = [];
-    //    var linksToRemove = [];
-    //    var tableToRemoveByKey;
-
-    //    myDiagramModalOutputTable.nodes.each(function (node) {
-    //        if (node.data.category == "Table" && (node.data.WorkspaceTableName != "Selected Column") && (node.data.WorkspaceTableName != tableText)) {
-    //            tableToRemoveByKey = node.data.key;
-    //        }
-    //    });
-
-    //    if (tableToRemoveByKey == "undefined") return;          // if selected table is already exist
-
-    //    myDiagramModalOutputTable.startTransaction("change table");
-    //    var model = myDiagramModalOutputTable.model;
-    //    myDiagramModalOutputTable.nodes.each(function (node) {          //getting columns to remove
-    //        if (node.data.group == tableToRemoveByKey && node.data.category == "Column")
-    //            columnsToRemoveByKey.push(node.data.key);
-    //    });
-    //    myDiagramModalOutputTable.links.each(function (link) {           //getting links to remove
-    //        linksToRemove.push(link.data);
-
-    //    });
-
-    //    for (i = 0; i < linksToRemove.length; i++) {                    // removing links
-    //        model.removeLinkData(linksToRemove[i]);
-    //    }
-
-    //    for (i = 0; i < columnsToRemoveByKey.length; i++) {                  // removing columns
-    //        model.removeNodeData(model.findNodeDataForKey(columnsToRemoveByKey[i]));
-    //    }
-    //    model.removeNodeData(model.findNodeDataForKey(tableToRemoveByKey));     // removing table
-
-
-    //    var numberOfTables = existingTable.length;
-    //    for (i = 0; i < numberOfTables; i++) {
-    //        if (existingTable[i].WorkspaceTableName == tableText) {
-    //            existingTable[i].isGroup = true;
-    //            var loc = go.Point.parse(selectedColumnTable.loc);
-    //            loc.x += 500;
-    //            existingTable[i].loc = go.Point.stringify(loc);
-    //            model.addNodeData(existingTable[i]);  // adding table
-    //            for (j = 0; j < existingTable[i].Fields.length; j++) {         // adding columns
-    //            debugger;
-    //                var newNodeColumn = {};
-    //                newNodeColumn.group = existingTable[i].key;
-    //                newNodeColumn.category = "Column";
-    //                newNodeColumn.columnname = existingTable[i].Fields[j].COLUMNNAME;
-    //                newNodeColumn.columnid = ("T" + i + "C" + j + "O" + existingTable[i].Fields[j].COLUMNID);
-    //                newNodeColumn.columntype = existingTable[i].Fields[j].COLUMNTYPE;
-    //                model.addNodeData(newNodeColumn);
-    //            }
-    //        }
-    //    }
-
-    //    myDiagramModalOutputTable.model = model;
-    //    myDiagramModalOutputTable.commitTransaction("change table");
-
-    //});
-
     $("#save_mappings").on('click', function () {
         var isPurgeData = Ciel.Process.ProcessDesign.CreateJob.stepData.isPurgeData();
         var purgeByColumn = Ciel.Process.ProcessDesign.CreateJob.stepData.purgeByColumn();
@@ -469,52 +392,11 @@ $(document).ready(function () {
             }
         });
 
-        var tables=[];
-        
-         myDiagramModalInputTable.nodes.each(function (node) {
-             if (node.data.category == "Table") {
-                    tables.push(node);
-                }
-          });
-
-        currentStep.data.inputTablesByOrder = [];
-        var traversal = new Array(tables.length);
-        for (var i = 0; i < tables.length; i++) {
-            traversal[i] = [];
-            traversal[i].push(tables[i].data);    //1 index 0
-
-            var connectedTables = [];
-            var DFS = function (parent) {
-                if (parent.findExternalNodesConnected().count !== 0) {
-                    parent.findExternalNodesConnected().each(function (child) {
-                        if ((Ciel.Process.ProcessDesign.CreateJob.isHasNode(connectedTables, child.containingGroup.data) == -1)) {
-                            connectedTables.push(child.containingGroup.data);
-                            DFS(child.containingGroup);
-                        }
-                    });
-                }
+        myDiagramModalInputTable.nodes.each(function (node) {
+            if (node.data.category == "Table" && (Ciel.Process.ProcessDesign.CreateJob.isHasNode(currentStep.data.inputTablesByOrder, node.data) == -1)) {
+                currentStep.data.inputTablesByOrder.push(node.data);
             }
-            if ((Ciel.Process.ProcessDesign.CreateJob.isHasNode(connectedTables, tables[i].data) == -1)) {
-                connectedTables.push(tables[i].data);
-                DFS(tables[i]);
-            }
-
-            traversal[i].push([]);      //2 traversal index [i, 1]
-            traversal[i].push("not visited");       //3   traversal[i][2]
-            traversal[i][1] = connectedTables;//2
-            for (j = 0; j < traversal[i][1].length; j++) {
-                if ((Ciel.Process.ProcessDesign.CreateJob.isHasNode(currentStep.data.inputTablesByOrder, traversal[i][1][j]) == -1)) {
-                    currentStep.data.inputTablesByOrder.push(traversal[i][1][j]);
-                }
-            }
-
-        }
-
-        /*  myDiagramModalInputTable.nodes.each(function (node) {
-              if (node.data.category == "Table" && (Ciel.Process.ProcessDesign.CreateJob.isHasNode(currentStep.data.inputTablesByOrder, node.data) == -1)) {
-                  currentStep.data.inputTablesByOrder.push(node.data);
-              }
-          }); */
+        });
 
         currentStep.data.fromQuery = "From " + currentStep.data.inputTablesByOrder[0].WorkspaceTableName;
         currentStep.data.whereClause = [];  // make a set of strings
@@ -525,7 +407,6 @@ $(document).ready(function () {
             var expressions = "";
             var hasLink = false;
             var relationType;
-            var joinIs;
 
             while (--j > -1) {
                 var links = currentStep.data.relationExpression[currentStep.data.inputTablesByOrder[j].WorkspaceTableName + currentStep.data.inputTablesByOrder[i].WorkspaceTableName];
@@ -541,15 +422,6 @@ $(document).ready(function () {
                         var partIndex = relationType.indexOf(":");
                         var expression = relationType.substr((partIndex + 2), relationType.length);
 
-                        if (currentStep.data.inputTablesByOrder[j].key === myDiagramModalInputTable.model.findNodeDataForKey(links[k].from).group) {
-                            joinIs = Ciel.Process.ProcessDesign.CreateJob.getRelationType(links[k]);
-                        } else {
-                            joinIs = Ciel.Process.ProcessDesign.CreateJob.getRelationType({
-                                checked1: links[k].checked3,
-                                checked2: links[k].checked2,
-                                checked3: links[k].checked1
-                            });
-                        }
                         if (k == 0) {
                             expressions += expression;
                         }
@@ -557,21 +429,18 @@ $(document).ready(function () {
                             expressions += " AND " + expression;
                         }
 
-                        if (joinIs.toLowerCase() == "leftouter" && currentStep.data.whereClause.indexOf(currentStep.data.inputTablesByOrder[i].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].to).data.columnname) == -1) {
+                        if (relationType.substr(0, partIndex).toLowerCase() == "leftouter" && currentStep.data.whereClause.indexOf(currentStep.data.inputTablesByOrder[i].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].to).data.columnname) == -1) {
                             currentStep.data.whereClause.push(currentStep.data.inputTablesByOrder[i].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].to).data.columnname);
-                            joinIs = "LeftJoin";
                         }
                         else {
-                            if (joinIs.toLowerCase() == "rightouter" && currentStep.data.whereClause.indexOf(currentStep.data.inputTablesByOrder[i - 1].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].from).data.columnname) == -1) {
+                            if (relationType.substr(0, partIndex).toLowerCase() == "rightouter" && currentStep.data.whereClause.indexOf(currentStep.data.inputTablesByOrder[i - 1].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].from).data.columnname) == -1) {
                                 currentStep.data.whereClause.push(currentStep.data.inputTablesByOrder[i - 1].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].from).data.columnname);
-                                joinIs = "RightJoin";
                             }
                             else {
-                                if (joinIs.toLowerCase() == "fullouter" && currentStep.data.whereClause.indexOf(currentStep.data.inputTablesByOrder[i].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].to).data.columnname) == -1
+                                if (relationType.substr(0, partIndex).toLowerCase() == "fullouter" && currentStep.data.whereClause.indexOf(currentStep.data.inputTablesByOrder[i].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].to).data.columnname) == -1
                                     && currentStep.data.whereClause.indexOf(currentStep.data.inputTablesByOrder[i - 1].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].from).data.columnname) == -1) {
                                     currentStep.data.whereClause.push(currentStep.data.inputTablesByOrder[i].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].to).data.columnname);
                                     currentStep.data.whereClause.push(currentStep.data.inputTablesByOrder[i - 1].WorkspaceTableName + "." + myDiagramModalInputTable.findNodeForKey(links[k].from).data.columnname);
-                                    joinIs = "FullJoin";
                                 }
                             }
                         }
@@ -581,7 +450,8 @@ $(document).ready(function () {
             }
 
             if (hasLink) {
-                currentStep.data.fromQuery += "\n " + joinIs + " " + currentStep.data.inputTablesByOrder[i].WorkspaceTableName + " On ";
+                var partIndex = relationType.indexOf(":");
+                currentStep.data.fromQuery += "\n " + relationType.substr(0, partIndex) + " " + currentStep.data.inputTablesByOrder[i].WorkspaceTableName + " On ";
             }
             else {
                 currentStep.data.fromQuery += "\n CrossJoin " + currentStep.data.inputTablesByOrder[i].WorkspaceTableName + " ";
@@ -644,6 +514,20 @@ $(document).ready(function () {
         currentStep.data["inputTables"] = inputTables;          //1# inputTable to currentStep
 
         var outputTable = Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(JSON.parse(JSON.stringify(modalOutputTable)));
+        var Fields = _.where(myDiagramModalOutputTable.model.nodeDataArray, { category: "Column", group: outputTable.key });
+        outputTable.Fields = [];
+        for (i = 0; i < Fields.length; i++) {
+            
+            outputTable.Fields.push({
+                COLUMNNAME: Fields[i].columnname.substr(Fields[i].columnname.indexOf(".")+1, Fields[i].columnname.length),
+                COLUMNSIZE: Fields[i].columnsize,
+                COLUMNTYPE: Fields[i].columntype,
+                FunctionID: Fields[i].functionid,
+                TableName:outputTable.WorkspaceTableName,
+                TimeTableName: Fields[i].timetablename,
+                WORKSPACETABLEID: Fields[i].workspacetableid
+            });
+        }
         outputTable.isGroup = false;
         outputTable.from = currentStep.data.key;
         currentStep.data["outputTable"] = outputTable;            // 2# outputTable from currentStep
@@ -678,20 +562,33 @@ $(document).ready(function () {
         else {
             // outputTable.loc =cure
         }
-
-        if (outputTable.WorkspaceTableName !== undefined) {
-            model.addNodeData(outputTable);
-
+        model.addNodeData(outputTable);
+        if (outputTable.WorkspaceTableName !== undefined &&  outputTable.TableType !== "Existing") {
+            
+            var newTable;
+            if (outputTable.IsTemporary) {
+                newTable = Ciel.Process.ProcessDesign.CreateJob.tempTablesHandle.indexOf(outputTable);
+                var table = Ciel.Process.ProcessDesign.CreateJob.tempTablesHandle.getTempTablesList()[newTable];
+                table.Fields = outputTable.Fields;
+            }
+            else {
+            newTable = Ciel.Process.ProcessDesign.CreateJob.newTablesHandle.indexOf(outputTable);
+            var table = Ciel.Process.ProcessDesign.CreateJob.newTablesHandle.getNewTablesList()[newTable];
+            table.Fields = outputTable.Fields;
+            }
+            
             //canvas.commitTransaction("save table");
 
-            canvas.startTransaction("add link");
-            model.addLinkData({
-                from: currentStep.data.key,
-                to: outputTable.key
-            });
-            canvas.commitTransaction("add link");
+            
         }
         canvas.commitTransaction("save table");
+
+        canvas.startTransaction("add link");
+        model.addLinkData({
+            from: currentStep.data.key,
+            to: outputTable.key
+        });
+        canvas.commitTransaction("add link");
 
 
         canvas.startTransaction("purge");
@@ -755,7 +652,7 @@ function execute() {
     self.ColumnDataTypes = [
       { Name: 'String - Fixed Length (Without Unicode)', Size: '1', IsEditable: true, reg: '^(0*2000|0*[1-9]|0*[1-9][0-9]|0*[1-9][0-9][0-9]|0*[1][0-9][0-9][0-9])$', errMessage: "Size should be in range 1 - 2000!" },
       { Name: 'String - Fixed Length (With Unicode)', Size: '1', IsEditable: true, reg: '^(0*2000|0*[1-9]|[1-9][0-9]|0*[1-9][0-9][0-9]|0*[1][0-9][0-9][0-9])$', errMessage: "Size should be in range 1 - 2000!" },
-      { Name: 'String - Dynamic length(Without Unicode)', Size: '4000', IsEditable: true, reg: '^(0*4000|0*[1-9]|[1-9][0-9]|0*[1-9][0-9][0-9]|0*[1-3][0-9][0-9][0-9])$', errMessage: "Size should be in range 1 - 4000!" },
+      { Name: 'String - Dynamic length (Without Unicode)', Size: '4000', IsEditable: true, reg: '^(0*4000|0*[1-9]|[1-9][0-9]|0*[1-9][0-9][0-9]|0*[1-3][0-9][0-9][0-9])$', errMessage: "Size should be in range 1 - 4000!" },
       { Name: 'String - Dynamic length (With Unicode)', Size: '4000', IsEditable: true, reg: '^(0*4000|0*[1-9]|[1-9][0-9]|0*[1-9][0-9][0-9]|0*[1-3][0-9][0-9][0-9])$', errMessage: "Size should be in range 1 - 4000!" },
       { Name: 'number', Size: '18,0', IsEditable: true, reg: '^([1-9]|[1-2][0-9]|[3][0-8])(,)([0-9]|[0-2][0-9]|[3][0-8])$', errMessage: "Size should be in format p,s with p in range 1 - 38 and s in range 0 - 38!" },
       { Name: 'date', Size: "", IsEditable: false, reg: '^$' },
@@ -1078,7 +975,7 @@ function execute() {
 
     var fileNodeClicked = function (e, obj) {
         if (isCanvasReadOnly) {
-            if (obj.part.data.category.toLowerCase() === "table" || obj.part.data.category.toLowerCase() === "filewithtable") {
+            if ((obj.part.data.category.toLowerCase() === "table" && !obj.part.data.IsTemporary) || (obj.part.data.category.toLowerCase() === "filewithtable" && !obj.part.data.IsOutputTableTemporary)) {
                 var tableName;
                 if (obj.part.data.category.toLowerCase() === "filewithtable") {
                     tableName = obj.part.data.OutputTableName;
@@ -1088,8 +985,15 @@ function execute() {
                 }
                 recordTableName = tableName;
 
+                $("#gridContainer").dxDataGrid('instance').option('showColumnHeaders', true);
                 Ciel.Process.ProcessDesign.CreateJob.ShowTableData(tableName, 0, true);
                 $(".pageColumns").removeClass("hideBottom minimizeBottom").addClass("showBottom")
+            }
+            else if ((obj.part.data.category.toLowerCase() === "table" && obj.part.data.IsTemporary) || (obj.part.data.category.toLowerCase() === "filewithtable" && obj.part.data.IsOutputTableTemporary)) {
+                objshowDataViewModel.UpdateData([], true);
+                $("#gridContainer").dxDataGrid('instance').option('showColumnHeaders', false);
+                $('.panel-body').find('.mapper-loader').hide();
+                $(".pageColumns").removeClass("hideBottom minimizeBottom").addClass("showBottom");
             }
         }
         else {
@@ -1100,14 +1004,13 @@ function execute() {
         //obj.part.data.fileToTableObj = fileToTableObj;
     }
 
-    var columnMapping = function (sourceColumnName, targetColumnName, targetColumnType, targetColumnSize, func, isColumnSizeEditable, validateExpression) {
+    var columnMapping = function (sourceColumnName, targetColumnName, targetColumnType, targetColumnSize, func, isColumnSizeEditable) {
         var self = this;
         self.sourceColumnName = ko.observable(sourceColumnName);
         self.targetColumnName = ko.observable(targetColumnName);
         self.targetColumnType = ko.observable(targetColumnType);
         self.targetColumnSize = ko.observable(targetColumnSize);
         self.isColumnSizeEditable = ko.observable(isColumnSizeEditable);
-        self.validateExpression = validateExpression;
 
         self.targetColumnName.subscribe(function (newValue) {
             var colsArr = func();
@@ -1127,19 +1030,18 @@ function execute() {
             }
         });
 
-        self.targetColumnType.subscribe(function (newValue) {
-            var colsArr = modelData.ColumnDataTypes;
-            if (modelData.OutputTableType() === TableTypeEnum.New) {
+        self.dataTypeChange = function (newValue, event) {
+            if (!(event.originalEvent == null)) {
+                var colsArr = modelData.ColumnDataTypes;
                 $(colsArr).each(function (index, dataType) {
-                    if (dataType.Name == newValue) {
+                    if (dataType.Name == newValue.targetColumnType()) {
                         self.targetColumnSize(dataType.Size);
                         self.isColumnSizeEditable(dataType.IsEditable);
-                        self.validateExpression = dataType.reg;
                         return false;
                     }
                 });
             }
-        });
+        }
     };
 
     var fileColumn = function (id, name, seqNo) {
@@ -2123,13 +2025,13 @@ function execute() {
                     self.addError('One or more validations failed');
                 }
                 else if (self.TableName() != "") {
-                    self.ErrorList([]);
                     var tbl = ns.tempTablesHandle.getTableByName(self.TableName());
                     if (tbl == null) tbl = ns.newTablesHandle.getTableByName(self.TableName());
                     if (tbl != null && tbl.TempID !== self.node.data.TempID) {
                         self.addError('A table with this name is already created in the job.');
                         return;
                     }
+                    self.ErrorList([]);
 
                     if (self.node.data.ErrorList.indexOf('A table with this name is already created in the job.') > -1) {
                         self.node.data.ErrorList.splice(self.node.data.ErrorList.indexOf('A table with this name is already created in the job.'), 1)
@@ -2149,12 +2051,11 @@ function execute() {
                     var clearMapings = !ns.tempTablesHandle.matchColumns(self.node.data.Fields, ko.toJS(self.Fields()));
                     var prevStatus = self.node.data.IsTemporary;
 
-                    debugger;
                     self.node.diagram.model.startTransaction("set table properties");
                     self.node.diagram.model.setDataProperty(self.node.data, "WorkspaceTableName", self.TableName());
                     self.node.diagram.model.setDataProperty(self.node.data, "Fields", ko.toJS(self.Fields()));
                     self.node.diagram.model.setDataProperty(self.node.data, "IsTemporary", self.IsTemporary());
-                    self.node.diagram.model.setDataProperty(self.node.data, "ErrorList", self.ErrorList());
+                    //self.node.diagram.model.setDataProperty(self.node.data, "ErrorList", self.ErrorList());
                     self.node.diagram.model.commitTransaction("set table properties");
 
                     if (self.IsTemporary() === false && prevStatus === true) {
@@ -2167,7 +2068,7 @@ function execute() {
 
                     }
                     else if (self.IsTemporary() === true && prevStatus === false) {
-                        //if table is marked from permanent to temporary then add it to temp tables list
+                        //if table is marked fr om permanent to temporary then add it to temp tables list
                         self.node.data.TableType = TableTypeEnum.New;
                         ns.newTablesHandle.removeTableFromList(self.node.data);
                         ns.tempTablesHandle.addTableToList(self.node.data);
@@ -2193,7 +2094,7 @@ function execute() {
         }
 
         self.addColumn = function () {
-            self.Fields.push(new field("", "", "varchar", 2000));
+            self.Fields.push(new field("", "", "String - Dynamic length (With Unicode)", 4000));
         }
 
         self.removeColumn = function (column) {
@@ -2289,8 +2190,12 @@ function execute() {
 
     var stepModel = function () {
         var self = this;
-
+        self.finalOutputTablename = ko.observable();
         self.selectedOutputTableName = ko.observable();
+        self.newOutputTableName = ko.observable();
+        self.OutputTableType = ko.observable();
+        self.isTempTable = ko.observable(true);
+        self.TableTypeEnum = TableTypeEnum;
         self.outputTables = ko.observableArray([]);
         self.isPurgeData = ko.observable(false);
         self.purgeByColumn = ko.observable();
@@ -2336,6 +2241,42 @@ function execute() {
             }
         });
 
+
+        self.newOutputTableName.subscribe(function (newValue) {
+            if (newValue !== "" && myDiagramModalOutputTable.model.nodeDataArray.length) {
+                self.finalOutputTablename(self.newOutputTableName());
+                myDiagramModalOutputTable.startTransaction("change table name");
+
+                var newTable = _.where(myDiagramModalOutputTable.model.nodeDataArray, { category: "Table", TableType: "New" })
+                myDiagramModalOutputTable.model.setDataProperty(newTable[0], "WorkspaceTableName", self.finalOutputTablename());
+                var columnList = _.where(myDiagramModalOutputTable.model.nodeDataArray, { category: "Column", group: newTable[0].key })
+                if (columnList.length) {
+                    $.each(columnList, function (index, column) {
+                        myDiagramModalOutputTable.model.setDataProperty(column, "columnname", self.finalOutputTablename() + '.' + column.columnname.split('.')[1]);
+                    });
+                }
+                myDiagramModalOutputTable.commitTransaction("change table name");
+                myDiagramModalOutputTable.requestUpdate();
+            }
+        });
+
+        self.isTempTable.subscribe(function (newValue) {
+            if (true) {
+                var newTable = _.where(myDiagramModalOutputTable.model.nodeDataArray, { category: "Table", TableType: "New" });
+                ns.newTablesHandle.removeTableFromList(newTable);
+                if(ns.tempTablesHandle.getTableByID(newTable.TempID)===null) {
+                    ns.tempTablesHandle.addTableToList(newTable);
+                }
+                
+            }
+            else {
+                ns.tempTablesHandle.removeTableFromList(newTable);
+                if (ns.newTablesHandle.getTableByID(newTable.TempID) === null) {
+                    ns.newTablesHandle.addTableToList(newTable);
+                }
+            }
+        });
+
         self.resetData = function () {
             self.purgeValue("");
             self.purgeByColumn("");
@@ -2345,6 +2286,15 @@ function execute() {
         self.outputTableChange = function (newValue, event) {
             if (event.originalEvent != undefined) {
                 if (event.originalEvent.isTrusted) {
+                    if (newValue.selectedOutputTableName() === "New Table") {
+                        self.OutputTableType(TableTypeEnum.New)
+
+                    }
+                    else {
+                        self.OutputTableType(TableTypeEnum.Existing)
+                        self.newOutputTableName('');
+                        self.isTempTable(false);
+                    }
                     existingTableChange(newValue.selectedOutputTableName());
                     self.isPurgeData(false);
                     self.purgeValue("");
@@ -2352,6 +2302,7 @@ function execute() {
                 }
             }
         };
+
         /* column list of selected Table */
         self.getColumnsByTableName = ko.computed(function () {
             var result = ko.utils.arrayFilter(self.outputTables(), function (item) {
@@ -2420,7 +2371,7 @@ function execute() {
             if (self.columnMappings().length == 0 && self.OutputTableType() == TableTypeEnum.New) {
                 var tempArr = [];
                 $(self.fileColumns()).each(function (index, item) {
-                    tempArr.push(new columnMapping(item.columnName, item.columnName, '', '', self.getColumnsByTableName, true, ""));
+                    tempArr.push(new columnMapping(item.columnName, item.columnName, 'String - Dynamic length (With Unicode)', '4000', self.getColumnsByTableName, true, ""));
                 });
                 self.columnMappings(tempArr);
             }
@@ -2481,7 +2432,6 @@ function execute() {
 
         self.selectedOutputTableName.subscribe(function (newValue) {
             if (newValue === "New Table") {
-                //self.isNewOutputTable(true);
                 self.OutputTableType(TableTypeEnum.New);
                 self.isTempTable(true);
             }
@@ -2492,6 +2442,8 @@ function execute() {
                     ele.css('border-color', '');
                     ele.tooltip("destroy");
                 }
+                self.isTempTable(false);
+                self.OutputTableType(TableTypeEnum.Existing);
                 $.each(self.outputTables(), function (index, value) {
                     if (value.tableName === newValue) {
                         self.selectedOutputTable = value;
@@ -2527,7 +2479,7 @@ function execute() {
 
             if (!match) {
                 if (self.OutputTableType() === TableTypeEnum.New) {
-                    self.columnMappings.push(new columnMapping(data.columnName, data.columnName, 'String - Fixed Length (Without Unicode)', '1', self.getColumnsByTableName, true, ""));
+                    self.columnMappings.push(new columnMapping(data.columnName, data.columnName, 'String - Dynamic length (With Unicode)', '4000', self.getColumnsByTableName, true, ""));
                 }
                 else {
                     self.columnMappings.push(new columnMapping(data.columnName, '', '', '', self.getColumnsByTableName, false, ""));
@@ -2627,7 +2579,7 @@ function execute() {
 
             self.outputTables([]);
             var tempOutputTables = [];
-            tempOutputTables.push(new outputTable("New Table", [new outputTableColumn(0, '', '', '', false)], false, true));
+            tempOutputTables.push(new outputTable("New Table", [], false, true));
             for (var i = 0; i < tables.length; i++) {
                 if (tables[i].WorkspaceTableName !== "New Table") {
                     var columns = [];
@@ -2692,7 +2644,7 @@ function execute() {
             if (!(node.data.ColumnMappings == null)) {
                 var tempArr = [];
                 $.each(node.data.ColumnMappings, function () {
-                    tempArr.push(new columnMapping($(this)[0].sourceColumnName, $(this)[0].targetColumnName, $(this)[0].targetColumnType, $(this)[0].targetColumnSize, self.getColumnsByTableName, $(this)[0].isColumnSizeEditable, $(this)[0].validateExpression));
+                    tempArr.push(new columnMapping($(this)[0].sourceColumnName, $(this)[0].targetColumnName, $(this)[0].targetColumnType, $(this)[0].targetColumnSize, self.getColumnsByTableName, $(this)[0].isColumnSizeEditable));
                 });
                 self.columnMappings(tempArr);
             }
@@ -2729,6 +2681,14 @@ function execute() {
                 }
 
                 self.validateMappings();
+                var sourceCols = self.columnMappings().map(function (item) { return item.sourceColumnName() });
+                for (idx = 0; idx < sourceCols.length; idx++) {
+                    if (sourceCols.indexOf(sourceCols[idx]) !== idx) {
+                        if (self.ErrorList.indexOf('A source column cannot have more than one mapping!') === -1) self.ErrorList.push('A source column cannot have more than one mapping!');
+                        return;
+                    }
+                }
+
 
                 if ($("#file-modal .tab-content .has-error").length > 0) {
                     self.addError('One or more validations failed');
@@ -2779,7 +2739,7 @@ function execute() {
             self.node.data["ColumnMappings"] = [];
             if (!(self.columnMappings == null)) {
                 $.each(self.columnMappings(), function (index, value) {
-                    tempColumnMappings.push({ sourceColumnName: value.sourceColumnName(), targetColumnName: value.targetColumnName(), targetColumnType: value.targetColumnType(), targetColumnSize: value.targetColumnSize(), getColumnsByTableName: self.getColumnsByTableName, isColumnSizeEditable: value.isColumnSizeEditable(), validateExpression: value.validateExpression });
+                    tempColumnMappings.push({ sourceColumnName: value.sourceColumnName(), targetColumnName: value.targetColumnName(), targetColumnType: value.targetColumnType(), targetColumnSize: value.targetColumnSize(), getColumnsByTableName: self.getColumnsByTableName, isColumnSizeEditable: value.isColumnSizeEditable() });
                     if (self.selectedOutputTableName() === RES_PRC00008 || self.selectedOutputTable.isTemporary || ns.newTablesHandle.indexOf(self.selectedOutputTable) > -1) {
                         newTableFields.push({ COLUMNID: "", COLUMNNAME: value.targetColumnName(), COLUMNTYPE: value.targetColumnType(), COLUMNSIZE: value.targetColumnSize() });
                     }
@@ -2949,48 +2909,7 @@ function execute() {
                     }
                 }
             });
-            //$("#tableFields tbody .columnname").each(function (idx, item) {
-            //    if ($(item).parents("td").hasClass("has-error")) {
-            //        $(item).parents("td").removeClass("has-error");
-            //        $(item).css('border-color', '');
-            //        $(item).tooltip("destroy");
-            //    }
-            //    if ($(item).val() === "") {
-            //        $(item).parents("td").addClass("has-error");
-            //        $(item).css('border-color', 'red');
-            //        title = 'Column Name cannot be empty! ';
-            //        var options = {
-            //            placement: $(item).data('placement') || 'bottom'
-            //        }
-            //        $(item).attr("title", title).tooltip(options).tooltip('fixTitle').tooltip('show');
-            //    }
-            //    else if (colNameArr.indexOf($(item).val()) != idx || colNameArr.indexOf($(item).val(), idx + 1) != -1) {
-            //        $(item).parents("td").addClass("has-error");
-            //        $(item).css('border-color', 'red');
-            //        title = 'Column Name should be unique! ';
-            //        var options = {
-            //            placement: $(item).data('placement') || 'bottom'
-            //        }
-            //        $(item).attr("title", title).tooltip(options).tooltip('fixTitle').tooltip('show');
-            //    }
-            //});
 
-            //$("#tableFields tbody .columnsize").each(function (idx, item) {
-            //    if ($(item).parents("td").hasClass("has-error")) {
-            //        $(item).parents("td").removeClass("has-error");
-            //        $(item).css('border-color', '');
-            //        $(item).tooltip("destroy");
-            //    }
-            //    if ($(item).val() === "") {
-            //        $(item).parents("td").addClass("has-error");
-            //        $(item).css('border-color', 'red');
-            //        title = 'Column Size cannot be empty! ';
-            //        var options = {
-            //            placement: $(item).data('placement') || 'bottom'
-            //        }
-            //        $(item).attr("title", title).tooltip(options).tooltip('fixTitle').tooltip('show');
-            //    }
-            //});
 
         }
     }
@@ -3110,7 +3029,9 @@ function execute() {
         //    console.log(oldValue);
         //    self.oldValue = oldValue;
         //}, self, "beforeChange");
-
+        self.testfunc = function () {
+            return;
+        }
         self.modalOpen = function (data, event) {
             if (data.AdditionalData === 'File') {
                 modelData.updateModel(node, tablesPalette);
@@ -3243,14 +3164,30 @@ function execute() {
                 var loc = go.Point.parse(selectedColumnTable.loc);
                 loc.x += 500;
                 existingTable[i].loc = go.Point.stringify(loc);
+                if (existingTable[i].TableType === TableTypeEnum.New) {
+                    existingTable[i].TempID = ns.newTablesHandle.generateNewID();
+                    if (existingTable[i].IsTemporary) {
+                        ns.tempTablesHandle.addTableToList(existingTable[i])
+                    }
+                    else {
+                        ns.newTablesHandle.addTableToList(existingTable[i])
+                    }
+                }
                 model.addNodeData(existingTable[i]);  // adding table
-                for (j = 0; j < existingTable[i].Fields.length; j++) {         // adding columns
+                var tableFields = existingTable[i].Fields;
+                if (tableText == "New Table") {
+                    var table = _.where(myDiagramModalOutputTable.model.nodeDataArray, { category: "Table", WorkspaceTableName: "Selected Column" });
+                    tableFields = _.where(myDiagramModalOutputTable.model.nodeDataArray, { category: "Column", group: table[0].key });
+                }
+
+
+                for (j = 0; j < tableFields.length; j++) {         // adding columns
                     var newNodeColumn = {};
                     newNodeColumn.group = existingTable[i].key;
                     newNodeColumn.category = "Column";
-                    newNodeColumn.columnname = existingTable[i].Fields[j].COLUMNNAME;
-                    newNodeColumn.columnid = ("T" + i + "C" + j + "O" + existingTable[i].Fields[j].COLUMNID);
-                    newNodeColumn.columntype = existingTable[i].Fields[j].COLUMNTYPE;
+                    newNodeColumn.columnname = tableFields[j].COLUMNNAME === undefined ? tableText + '.' + tableFields[j].columnname.split('.')[1] : tableFields[j].COLUMNNAME;
+                    newNodeColumn.columnid = ("T" + i + "C" + j + "O" + tableFields[j].COLUMNID === undefined ? tableFields[j].columnid : tableFields[j].COLUMNID);
+                    newNodeColumn.columntype = tableFields[j].COLUMNTYPE === undefined ? tableFields[j].columntype : tableFields[j].COLUMNTYPE;
                     model.addNodeData(newNodeColumn);
                 }
             }
@@ -3826,6 +3763,7 @@ function execute() {
         },
 
         FailedHandler: function (newTables, invalidTables) {
+            Ciel.Util.GlobalAlert.showWarning('Cannot save job, validation failed for highlighted objects!');
             //TODO: optimize (change loops inside out and use break)
             $(newTables).each(function (index, tableData) {
                 canvas.nodes.each(function (node) {
@@ -4126,8 +4064,6 @@ function execute() {
         ns.stepData.updateModel(obj, tablesPalette);
 
         if (typeof currentStep.data.modalInputTablesMapping !== "undefined") {
-            //addTemplateForDiagram(myDiagramModalInputTable, true);
-
             addTemplateForDiagram(myDiagramModalInputTable, true);
 
             myDiagramModalInputTable.linkTemplate = Ciel.Process.ProcessDesign.CreateJob.linkTemplateForRelationsMapping();
@@ -4146,12 +4082,20 @@ function execute() {
             var tableName = "";
             myDiagramModalOutputTable.nodes.each(function (node) {
                 if (node.data.category == "Table" && (node.data.WorkspaceTableName != "Selected Column")) {
-                    tableName = node.data.WorkspaceTableName;
+                    tableName = node;
                 }
             });
-
+            if (tableName.data.IsTemporary || (tableName.data.TempID != null && ns.newTablesHandle.indexOf(tableName.data) > -1)) {
+                ns.stepData.selectedOutputTableName(RES_PRC00008);
+                ns.stepData.newOutputTableName(tableName.data.WorkspaceTableName);
+                ns.stepData.OutputTableType(TableTypeEnum.New);
+            }
+            else {
+                ns.stepData.selectedOutputTableName(tableName.data.WorkspaceTableName);
+                ns.stepData.OutputTableType(TableTypeEnum.Existing);
+            }
             //$("#existingTable").val(tableName);
-            ns.stepData.selectedOutputTableName(tableName);
+            // ns.stepData.selectedOutputTableName(tableName);
         }
         else {
 
@@ -4178,6 +4122,8 @@ function execute() {
                             var tempTable = _.where(ns.tempTablesHandle.getTempTablesList(), { WorkspaceTableName: n.data.OutputTableName });
                             tempTable[0].key = myDiagramModalInputTable.model.nodeDataArray.length === 0 ? -1 : myDiagramModalInputTable.model.nodeDataArray[myDiagramModalInputTable.model.nodeDataArray.length - 1].key - 1;
                             tempTable[0].category = "Table";
+                            tempTable[0].from = n.data.key;
+                            tempTable[0].to = n.data.to;
                             tablesToCurrentStep.push(tempTable[0])
                         }
                     }
@@ -4219,7 +4165,21 @@ function execute() {
                 nodeDataArray.push(Ciel.Process.ProcessDesign.CreateJob.createTableInGroupFormat(TableInJson[0]));
                 Array.prototype.push.apply(nodeDataArray, Ciel.Process.ProcessDesign.CreateJob.getColumnsFromTable(TableInJson[0], 0));
                 //select.value = TableInJson[0].WorkspaceTableName;
-                ns.stepData.selectedOutputTableName(TableInJson[0].WorkspaceTableName);
+                if (TableInJson[0].IsTemporary || (TableInJson[0].TempID != null && ns.newTablesHandle.indexOf(TableInJson[0]) > -1)) {
+                    ns.stepData.selectedOutputTableName(RES_PRC00008);
+                    ns.stepData.newOutputTableName(TableInJson[0].WorkspaceTableName);
+                    ns.stepData.OutputTableType(TableTypeEnum.New);
+                }
+                else {
+                    ns.stepData.selectedOutputTableName(TableInJson[0].WorkspaceTableName);
+                    ns.stepData.OutputTableType(TableTypeEnum.Existing);
+                }
+                // ns.stepData.selectedOutputTableName(TableInJson[0].WorkspaceTableName);
+            }
+            else {
+                ns.stepData.selectedOutputTableName('');
+                ns.stepData.newOutputTableName('');
+                ns.stepData.OutputTableType('');
             }
 
             linkDataArray = [];
@@ -4345,7 +4305,7 @@ function execute() {
                 goJs(go.TextBlock,
                   {
                       alignment: go.Spot.Left,
-                      editable: false,
+                      editable: true,
                       margin: 5,
                       font: "bold 16px sans-serif",
                       opacity: 0.75,
@@ -4668,8 +4628,24 @@ function execute() {
                  })
     }
 
+    ns.UpdateColumnInOutputNewTable = function (columnNode, columnName) {
+
+        var newTable = _.where(myDiagramModalOutputTable.model.nodeDataArray, { TableType: "New", category: "Table" });
+        var newNodeColumn = {};
+        if (newTable.length) {
+            newNodeColumn.group = key;
+            newNodeColumn.category = "Column";
+            newNodeColumn.columnname = newTable[0].WorkspaceTableName + "." + columnName;
+            newNodeColumn.columnid = columnNode.columnid;
+            newNodeColumn.columntype = columnNode.columntype;
+            return newNodeColumn;
+        }
+    }
+
     ns.updatedColumnInTable = function (e, obj) {
+        debugger;
         var key;
+        var key2;
         var outputModel = myDiagramModalOutputTable.model;
         if (e.diagram.model == outputModel) {
             return;
@@ -4703,10 +4679,12 @@ function execute() {
 
         }
 
-        myDiagramModalOutputTable.startTransaction("make new node");
+
         myDiagramModalOutputTable.nodes.each(function (node) {
             if (node.data.WorkspaceTableName == "Selected Column")
             { key = node.data.key; }
+            if (typeof node.data.TableType !== "undefined" && node.data.TableType === TableTypeEnum.New)
+            { key2 = node.data.key; }
         });
 
         //adding column
@@ -4724,21 +4702,70 @@ function execute() {
                     newNodeColumn.columnname = tableName + "." + n.data.columnname;
                     newNodeColumn.columnid = n.data.columnid;
                     newNodeColumn.columntype = n.data.columntype;
+
+                    var newNodeColumn2 = {};
+                    var removeColumn2 = {};
+                    if (typeof _.where(myDiagramModalOutputTable.model.nodeDataArray, { TableType: "New", category: "Table" })[0] === "undefined") {
+                        key2 = undefined;
+                    }
+                    if (typeof key2 !== "undefined") {
+                        var newTable = _.where(myDiagramModalOutputTable.model.nodeDataArray, { TableType: "New", category: "Table" });
+                        newNodeColumn2.group = key2;
+                        newNodeColumn2.category = "Column";
+                        newNodeColumn2.columnname = newTable[0].WorkspaceTableName + "." + n.data.columnname;
+                        newNodeColumn2.columnid = n.data.columnid;
+                        newNodeColumn2.columntype = n.data.columntype;
+                    }
+                   
+                   
+
+
                     var add = true;
+                    var add1 = true;
                     myDiagramModalOutputTable.nodes.each(function (node) {
-                        if (node.data.columnid == n.data.columnid && outputModel.findNodeDataForKey(node.data.group).WorkspaceTableName == "Selected Column") { // depens on columnid if everycolumn in diagram has unique id  then modify here
+                        if (node.data.columnid == n.data.columnid && outputModel.findNodeDataForKey(node.data.group).WorkspaceTableName == "Selected Column") {
+                            // depens on columnid if everycolumn in diagram has unique id  then modify here
                             add = false;
                             removeColumn = node.data;
                             newNodeColumn.key = node.data.key;
                         }
                     });
+
+
                     if (add) {
+                        myDiagramModalOutputTable.startTransaction("make new node");
                         outputModel.addNodeData(newNodeColumn);
+                        myDiagramModalOutputTable.commitTransaction("make new node");
+
                     } else {
+                        myDiagramModalOutputTable.startTransaction("make new node");
                         outputModel.removeNodeData(removeColumn);
                         outputModel.addNodeData(newNodeColumn);
+                        myDiagramModalOutputTable.commitTransaction("make new node");
                     }
+                    if (typeof key2 !== "undefined") {
+                        myDiagramModalOutputTable.nodes.each(function (node) {
+                            if (node.data.columnid == n.data.columnid && node.data.group === key2 && outputModel.findNodeDataForKey(node.data.group).TableType === TableTypeEnum.New) {
+                                add1 = false;
+                                removeColumn2 = node.data;
+                                // newNodeColumn.columnname = outputModel.findNodeDataForKey(node.data.group).WorkspaceTableName + "." + n.data.columnname;
+                                newNodeColumn2.key = node.data.key;
+                            }
+                        });
 
+                        if (add1) {
+                            myDiagramModalOutputTable.startTransaction("make new node");
+                            outputModel.addNodeData(newNodeColumn2);
+                            myDiagramModalOutputTable.commitTransaction("make new node");
+
+                        } else {
+                            myDiagramModalOutputTable.startTransaction("make new node");
+                            outputModel.removeNodeData(removeColumn2);
+                            outputModel.addNodeData(newNodeColumn2);
+                            myDiagramModalOutputTable.commitTransaction("make new node");
+                        }
+                    }
+                    
                 } else {
                     var newNodeColumn = {};
                     var remove = false;
@@ -4755,15 +4782,44 @@ function execute() {
                             linkToRemove = link;
                         })
                         if (linkToRemove !== undefined) {
+                            myDiagramModalOutputTable.startTransaction("make new node");
                             outputModel.removeLinkData(linkToRemove.data);
+                            myDiagramModalOutputTable.commitTransaction("make new node");
                         }
+                        myDiagramModalOutputTable.startTransaction("make new node");
                         outputModel.removeNodeData(newNodeColumn.data);
+                        myDiagramModalOutputTable.commitTransaction("make new node");
                     }
+                    if (typeof key2 !== "undefined") {
+                        var remove = false;
+                    myDiagramModalOutputTable.nodes.each(function (node) {
+                        if (node.data.columnid == n.data.columnid && node.data.group === key2 && outputModel.findNodeDataForKey(node.data.group).TableType == TableTypeEnum.New) {
+                            newNodeColumn = node;
+                            remove = true;
+                        }
+                    });
+
+                    if (remove) {
+                        var linkToRemove;
+                        newNodeColumn.findLinksConnected().each(function (link) {
+                            linkToRemove = link;
+                        })
+                        if (linkToRemove !== undefined) {
+                            myDiagramModalOutputTable.startTransaction("make new node");
+                            outputModel.removeLinkData(linkToRemove.data);
+                            myDiagramModalOutputTable.commitTransaction("make new node");
+                        }
+                        myDiagramModalOutputTable.startTransaction("make new node");
+                        outputModel.removeNodeData(newNodeColumn.data);
+                        myDiagramModalOutputTable.commitTransaction("make new node");
+                    }
+                    }
+                    
                 }
             }
         });
-        myDiagramModalOutputTable.model = outputModel;
-        myDiagramModalOutputTable.commitTransaction("make new node");
+
+
     }
 
     ns.nodeStyleForColumn = function () {
@@ -4838,7 +4894,7 @@ function execute() {
             + Ciel.Process.ProcessDesign.CreateJob.getStringFromBool(linkData.checked3);
 
         var relationType;
-        if (checkString === "000" || checkString === "010") {
+        if (checkString === "000") {
             return "InnerJoin";
         }
         switch (checkString) {
@@ -4859,6 +4915,9 @@ function execute() {
                 break;
             case "111":
                 relationType = "FullJoin";
+                break;
+            case "010":
+                relationType = "InnerJoin";
                 break;
                 // add the default keyword here
         }
@@ -4963,7 +5022,8 @@ function execute() {
             TableType: table.TableType,
             Fields: table.Fields,
             to: table.to,
-            from: table.from
+            from: table.from,
+            TempID: table.TempID
         };
     }
 
@@ -4976,7 +5036,13 @@ function execute() {
                 columnname: table.Fields[j].COLUMNNAME,                              //%%edit      text: TableInJson[i].columns[j].name,
                 columnid: ("T" + index + "C" + j + "I" + table.Fields[j].COLUMNID),     //%%edit             nothing remove this 
                 columntype: table.Fields[j].COLUMNTYPE,                                                 //%%edit             nothing remove this 
-                group: table.key
+                group: table.key,
+                columnsize: table.Fields[i].COLUMNSIZE,
+                functionid: table.Fields[i].FunctionID,
+                tablename: table.Fields[i].TableName,
+                timetablename: table.Fields[i].TimeTableName,
+                workspacetableid: table.Fields[i].WORKSPACETABLEID
+                
             });
         }
 
@@ -5112,7 +5178,7 @@ function execute() {
         switch (dataTypeString) {
             case 'String - Fixed Length (Without Unicode)':
             case 'String - Fixed Length (With Unicode)':
-            case 'String - Dynamic length(Without Unicode)':
+            case 'String - Dynamic length (Without Unicode)':
             case 'String - Dynamic length (With Unicode)':
                 returnType = 'string';
                 break;
